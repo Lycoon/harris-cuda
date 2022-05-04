@@ -7,7 +7,7 @@ Deadline is on **Monday 16 May 2022, 23:59**.
 
 - `/solution` - code from MLRF practice in Python
 - `/ref` - working reference code in C++ from `/solution` folder
-- `/cuda` - implementation of `ref` folder CPU code in CUDA
+- `/cuda` - implementation of `/ref` folder CPU code in CUDA
 
 ## Links
 
