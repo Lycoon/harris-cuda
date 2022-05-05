@@ -24,7 +24,7 @@ float ** gauss_kernel(int size)
     return gauss;
 }
 
-float *** mgrid(int start, int end) 
+float *** mgrid(int start, int end)
 {
     int size = end - start;
     float *** grid = new float**[2];
@@ -61,4 +61,22 @@ void free_grid(float *** grid, int size)
         delete[] grid[i];
     }
     delete[] grid;
+}
+
+void print_grid(float *** grid, int size)
+{
+    for (int i = 0; i < 2; i++)
+    {
+        std::cout << "[";
+        for (int y = 0; y < size; y++)
+        {
+            std::cout << ((y <= 0) ? "" : " ") << "[";
+            for (int x = 0; x < size; x++)
+            {
+                std::cout << grid[i][y][x] << ((x >= size - 1) ? "" : ", ");
+            }
+            std::cout << "]" << ((y >= size - 1) ? "" : "\n");
+        }
+        std::cout << "]\n" << ((i >= 1) ? "" : "\n");
+    }
 }
