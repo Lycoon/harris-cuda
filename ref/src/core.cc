@@ -76,3 +76,16 @@ void print_grid(float *** grid, int size)
         std::cout << "]\n" << ((i >= 1) ? "" : "\n");
     }
 }
+
+void print_gaussian(float ** gaussian, int size)
+{
+    for (int y = 0; y < size; y++)
+    {
+        std::cout << ((y <= 0) ? "" : " ") << "[";
+        for (int x = 0; x < size; x++)
+            std::cout << gaussian[y][x] << ((x >= size - 1) ? "" : ", ");
+
+        std::cout << "]" << ((y >= size - 1) ? "" : "\n");
+    }
+    std::cout << "\n";
+}
