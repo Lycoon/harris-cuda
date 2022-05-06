@@ -10,5 +10,5 @@ int main()
     int size = endGrid - startGrid;
 
     float ** gauss = gauss_kernel(size);
-    print_gaussian(gauss, size);
+    print_matrix(gauss, size);
 }
