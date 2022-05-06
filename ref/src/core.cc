@@ -40,10 +40,10 @@ float *** mgrid(int start, int end)
     for (int i = start, y = 0; i < end; i++, y++)
     {
         for (int j = start, x = 0; j < end; j++, x++)
+        {
             grid[0][y][x] = i; // Y
-
-        for (int j = start, x = 0; j < end; j++, x++)
             grid[1][y][x] = j; // X
+        }
     }
 
     return grid;

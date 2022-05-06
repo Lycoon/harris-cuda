@@ -5,8 +5,8 @@ int main()
 {
     std::cout << "Harris corner detector" << "\n";
 
-    int startGrid = -1;
-    int endGrid = 2;
+    int startGrid = -3;
+    int endGrid = 5;
     int size = endGrid - startGrid;
 
     float *** grid = mgrid(startGrid, endGrid);
