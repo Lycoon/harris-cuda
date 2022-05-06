@@ -37,16 +37,13 @@ float *** mgrid(int start, int end)
         grid[1][i] = new float[size];
     }
 
-    int y = 0, x = 0;
-    for (int i = start; i < end; i++)
+    for (int i = start, y = 0; i < end; i++, y++)
     {
-        for (int j = start; j < end; j++, x++)
+        for (int j = start, x = 0; j < end; j++, x++)
             grid[0][y][x] = i; // Y
 
         for (int j = start, x = 0; j < end; j++, x++)
             grid[1][y][x] = j; // X
-
-        y++;
     }
 
     return grid;
@@ -72,9 +69,8 @@ void print_grid(float *** grid, int size)
         {
             std::cout << ((y <= 0) ? "" : " ") << "[";
             for (int x = 0; x < size; x++)
-            {
                 std::cout << grid[i][y][x] << ((x >= size - 1) ? "" : ", ");
-            }
+
             std::cout << "]" << ((y >= size - 1) ? "" : "\n");
         }
         std::cout << "]\n" << ((i >= 1) ? "" : "\n");
