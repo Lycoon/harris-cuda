@@ -2,36 +2,36 @@
 
 void expm(float ** matrix, int rows, int cols)
 {
-    for (int y = 0; y < cols; y++)
-        for (int x = 0; x < rows; x++)
+    for (int y = 0; y < rows; y++)
+        for (int x = 0; x < cols; x++)
             matrix[y][x] = exp(matrix[y][x]);
 }
 
 void powm(float ** matrix, int rows, int cols, float power)
 {
-    for (int y = 0; y < cols; y++)
-        for (int x = 0; x < rows; x++)
-            matrix[y][x] = pow(matrix[y][x], power);
+    for (int y = 0; y < rows; y++)
+        for (int x = 0; x < cols; x++)
+            matrix[y][x] = powf(matrix[y][x], power);
 }
 
 void addm(float ** matrix1, float ** matrix2, int rows, int cols)
 {
-    for (int y = 0; y < cols; y++)
-        for (int x = 0; x < rows; x++)
+    for (int y = 0; y < rows; y++)
+        for (int x = 0; x < cols; x++)
             matrix1[y][x] += matrix2[y][x];
 }
 
 void divm(float ** matrix1, int rows, int cols, float scalar)
 {
-    for (int y = 0; y < cols; y++)
-        for (int x = 0; x < rows; x++)
+    for (int y = 0; y < rows; y++)
+        for (int x = 0; x < cols; x++)
             matrix1[y][x] /= scalar;
 }
 
 void mulm(float ** matrix1, int rows, int cols, float scalar)
 {
-    for (int y = 0; y < cols; y++)
-        for (int x = 0; x < rows; x++)
+    for (int y = 0; y < rows; y++)
+        for (int x = 0; x < cols; x++)
             matrix1[y][x] *= scalar;
 }
 
@@ -47,10 +47,10 @@ float ** gauss_kernel(int size)
         gauss[i] = new float[size];
 
     powm(X, size, size, 2);
-    divm(X, size, size, pow(2 * 0.33 * size, 2));
+    divm(X, size, size, 2 * powf(2 * 0.33 * size, 2));
 
     powm(Y, size, size, 2);
-    divm(Y, size, size, pow(2 * 0.33 * size, 2));
+    divm(Y, size, size, 2 * powf(2 * 0.33 * size, 2));
 
     addm(X, Y, size, size);
     mulm(X, size, size, -1);
