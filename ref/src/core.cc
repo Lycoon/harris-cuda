@@ -41,6 +41,13 @@ void mulm(float **matrix1, int rows, int cols, float scalar)
             matrix1[y][x] *= scalar;
 }
 
+void mulm_element_wise(float **matrix1, float **matrix2, int size)
+{
+    for (int y = 0; y < size; y++)
+        for (int x = 0; x < size; x++)
+            matrix1[y][x] *= matrix2[y][x];
+}
+
 void divm(float **matrix1, int rows, int cols, float scalar)
 {
     for (int y = 0; y < rows; y++)
@@ -53,6 +60,29 @@ void addm(float **matrix1, float **matrix2, int size)
     for (int y = 0; y < size; y++)
         for (int x = 0; x < size; x++)
             matrix1[y][x] += matrix2[y][x];
+}
+
+float ***gauss_derivative_kernels(int size)
+{
+    int mSize = size * 2 + 1; // matrix size
+    float ***grid = mgrid(-size, size + 1);
+    float **Y = grid[0];
+    float **X = grid[1];
+
+    float **gx = gauss_kernel(size);
+    float **gy = gauss_kernel(size);
+
+    mulm(Y, mSize, -1);
+    mulm(X, mSize, -1);
+    mulm_element_wise(gy, Y, mSize);
+    mulm_element_wise(gx, X, mSize);
+
+    float ***res = new float **[2];
+    res[0] = gx;
+    res[1] = gy;
+
+    free_matrix3(grid, mSize);
+    return res;
 }
 
 float **gauss_kernel(int size)
@@ -81,7 +111,7 @@ float **gauss_kernel(int size)
         for (int x = 0; x < mSize; x++)
             gauss[y][x] = X[y][x];
 
-    free_grid(grid, mSize);
+    free_matrix3(grid, mSize);
     return gauss;
 }
 
@@ -110,7 +140,7 @@ float ***mgrid(int start, int end)
     return grid;
 }
 
-void free_grid(float ***grid, int size)
+void free_matrix3(float ***grid, int size)
 {
     for (int i = 0; i < 2; i++)
     {
