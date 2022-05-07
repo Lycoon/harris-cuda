@@ -3,12 +3,9 @@
 
 int main()
 {
-    std::cout << "Harris corner detector" << "\n";
+    std::cout << "Harris corner detector"
+              << "\n";
 
-    int startGrid = -1;
-    int endGrid = 2;
-    int size = endGrid - startGrid;
-
-    float ** gauss = gauss_kernel(size);
-    print_matrix(gauss, size);
+    float **gauss = gauss_kernel(1);
+    print_matrix(gauss, 3, 3);
 }
