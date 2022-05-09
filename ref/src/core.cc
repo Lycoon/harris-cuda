@@ -62,12 +62,12 @@ void addm(float **matrix1, float **matrix2, int size)
             matrix1[y][x] += matrix2[y][x];
 }
 
-int **convolve(int **image, float **kernel, int imgWidth, int imgHeight, int kSize)
+float **convolve(int **image, float **kernel, int imgWidth, int imgHeight, int kSize)
 {
     // Instantiating convoluted image
-    int **res = new int *[imgHeight];
+    float **res = new float *[imgHeight];
     for (int y = 0; y < imgHeight; y++)
-        res[y] = new int[imgWidth];
+        res[y] = new float[imgWidth];
 
     for (int imgY = 0; imgY < imgHeight; imgY++)
     {
@@ -89,14 +89,14 @@ int **convolve(int **image, float **kernel, int imgWidth, int imgHeight, int kSi
     return res;
 }
 
-int ***gauss_derivatives(int **image, int imgWidth, int imgHeight, int size)
+float ***gauss_derivatives(int **image, int imgWidth, int imgHeight, int size)
 {
     auto g_xy = gauss_derivative_kernels(size);
 
     auto imx = convolve(image, g_xy[0], imgWidth, imgHeight, size);
     auto imy = convolve(image, g_xy[1], imgWidth, imgHeight, size);
 
-    int ***res = new int **[2];
+    float ***res = new float **[2];
     res[0] = imx;
     res[1] = imy;
 
@@ -212,7 +212,7 @@ void print_grid(float ***grid, int size)
 
 void print_matrix(float **matrix, int rows, int cols)
 {
-    for (int y = 0; y < rows; y++)
+    for (int y = 50; y < rows; y++)
     {
         std::cout << "[";
         for (int x = 0; x < cols; x++)

@@ -5,7 +5,9 @@
 
 float **gauss_kernel(int size);
 float ***gauss_derivative_kernels(int size);
+float ***gauss_derivatives(int **image, int imgWidth, int imgHeight, int size);
 float ***mgrid(int start, int end);
+float **convolve(int **image, float **kernel, int imgWidth, int imgHeight, int kSize);
 
 // General matrix operations
 void expm(float **matrix, int rows, int cols);
