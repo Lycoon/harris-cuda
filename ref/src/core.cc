@@ -62,14 +62,45 @@ void addm(float **matrix1, float **matrix2, int size)
             matrix1[y][x] += matrix2[y][x];
 }
 
-void gauss_derivatives(int** image, int size)
+int **convolve(int **image, float **kernel, int imgWidth, int imgHeight, int kSize)
+{
+    // Instantiating convoluted image
+    int **res = new int *[imgHeight];
+    for (int y = 0; y < imgHeight; y++)
+        res[y] = new int[imgWidth];
+
+    for (int imgY = 0; imgY < imgHeight; imgY++)
+    {
+        for (int imgX = 0; imgX < imgWidth; imgX++)
+        {
+            float acc = 0;
+            for (int kY = -kSize / 2, kI = 0; kY < kSize / 2; kY++, kI++)
+            {
+                for (int kX = -kSize / 2, kJ = 0; kX < kSize / 2; kX++, kJ++)
+                {
+                    if (imgY + kY >= 0 && imgY + kY < imgHeight && imgX + kX >= 0 && imgX + kX < imgWidth)
+                        acc += image[imgY + kY][imgX + kX] * kernel[kI][kJ];
+                }
+            }
+            res[imgY][imgX] = acc;
+        }
+    }
+
+    return res;
+}
+
+int ***gauss_derivatives(int **image, int imgWidth, int imgHeight, int size)
 {
     auto g_xy = gauss_derivative_kernels(size);
 
-    // auto imx = signal.convolve(im, gx, mode='same')
-    // auto imy = signal.convolve(im, gy, mode='same')
+    auto imx = convolve(image, g_xy[0], imgWidth, imgHeight, size);
+    auto imy = convolve(image, g_xy[1], imgWidth, imgHeight, size);
 
-    // return imx, imy;
+    int ***res = new int **[2];
+    res[0] = imx;
+    res[1] = imy;
+
+    return res;
 }
 
 float ***gauss_derivative_kernels(int size)
