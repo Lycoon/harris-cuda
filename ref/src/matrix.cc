@@ -144,7 +144,7 @@ Matrix* Matrix::convolve(int** image, Matrix& kernel, int imgWidth,
                 {
                     if (imgY + kY >= 0 && imgY + kY < imgHeight
                         && imgX + kX >= 0 && imgX + kX < imgWidth)
-                        acc += image[imgY + kY][imgX + kX] * kernel[kI][kJ];
+                        acc += image[imgY + kY][imgX + kX] * kernel[kJ][kI];
                 }
             }
             (*res)[imgY][imgX] = acc;
@@ -154,17 +154,17 @@ Matrix* Matrix::convolve(int** image, Matrix& kernel, int imgWidth,
     return res;
 }
 
-// Tuple<Matrix, Matrix> gauss_derivatives(int** image, int imgWidth,
-//                                         int imgHeight, int size)
-// {
-//     auto gauss = Matrix::gauss_derivative_kernels(size);
+Tuple<Matrix, Matrix> Matrix::gauss_derivatives(int** image, int imgWidth,
+                                                int imgHeight, int size)
+{
+    auto gauss = Matrix::gauss_derivative_kernels(size);
 
-//     auto imx = Matrix::convolve(image, *gauss.first, imgWidth, imgHeight,
-//     size); auto imy =
-//         Matrix::convolve(image, *gauss.second, imgWidth, imgHeight, size);
+    auto imx = Matrix::convolve(image, *gauss.first, imgWidth, imgHeight, size);
+    auto imy =
+        Matrix::convolve(image, *gauss.second, imgWidth, imgHeight, size);
 
-//     return { imx, imy };
-// }
+    return { imx, imy };
+}
 
 Tuple<Matrix, Matrix> Matrix::gauss_derivative_kernels(int size)
 {

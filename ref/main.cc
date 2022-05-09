@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "src/include/core.hh"
+#include "src/include/matrix.hh"
 #include "src/include/png.hh"
 
 int main()
@@ -11,14 +11,22 @@ int main()
     // float **gauss = gauss_kernel(1);
     // print_matrix(gauss, 3, 3);
 
-    float ***derivative = gauss_derivative_kernels(1);
-    print_matrix(derivative[1], 3, 3);
-    free_matrix3(derivative, 3);
+    auto derivative = Matrix::gauss_derivative_kernels(1);
+    derivative.second->print();
 
-    read_png((char *)"../../twin_it/bubbles_200dpi/b003.png");
-    int **grayscaled = to_grayscale();
+    read_png((char*)"../twin_it/bubbles_200dpi/b003.png");
+    int** grayscaled = to_grayscale();
 
-    float ***derivatives = gauss_derivatives(grayscaled, 254, 251, 3);
-    print_matrix(derivatives[0], 251, 254);
-    save(derivatives[0], 254, 251);
+    auto derivatives = Matrix::gauss_derivatives(grayscaled, 254, 251, 3);
+    // derivatives.first->print();
+    save(derivatives.first, 254, 251);
+
+    for (int y = 0; y < 251; y++)
+        delete[] grayscaled[y];
+    delete[] grayscaled;
+
+    // auto gauss = Matrix::gauss_derivative_kernels(1);
+    // gauss.first->print();
+    // std::cout << "\n";
+    // gauss.second->print();
 }

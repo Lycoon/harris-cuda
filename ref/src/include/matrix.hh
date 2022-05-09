@@ -36,8 +36,8 @@ public:
     static Tuple<Matrix, Matrix> mgrid(int start, int end);
     static Matrix* gauss_kernel(int size);
     static Tuple<Matrix, Matrix> gauss_derivative_kernels(int size);
-    // static Tuple<Matrix, Matrix> gauss_derivatives(int** image, int imgWidth,
-    //                                                int imgHeight, int size);
+    static Tuple<Matrix, Matrix> gauss_derivatives(int** image, int imgWidth,
+                                                   int imgHeight, int size);
     static Matrix* convolve(int** image, Matrix& kernel, int imgWidth,
                             int imgHeight, int kSize);
 
