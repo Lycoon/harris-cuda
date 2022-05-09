@@ -9,6 +9,13 @@ Deadline is on **Monday 16 May 2022, 23:59**.
 - `/ref` - working reference code in C++ from `/solution` folder
 - `/cuda` - implementation of `/ref` folder CPU code in CUDA
 
+## Running
+
+- `cd /ref/build`
+- `cmake ..`
+- `make`
+- `./harris`
+
 ## Links
 
 - Subject (https://www.lrde.epita.fr/~carlinet/cours/GPGPU/assignments-2022-04.slides.pdf)

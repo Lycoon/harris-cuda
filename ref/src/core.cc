@@ -62,6 +62,16 @@ void addm(float **matrix1, float **matrix2, int size)
             matrix1[y][x] += matrix2[y][x];
 }
 
+void gauss_derivatives(int** image, int size)
+{
+    auto g_xy = gauss_derivative_kernels(size);
+
+    // auto imx = signal.convolve(im, gx, mode='same')
+    // auto imy = signal.convolve(im, gy, mode='same')
+
+    // return imx, imy;
+}
+
 float ***gauss_derivative_kernels(int size)
 {
     int mSize = size * 2 + 1; // matrix size
