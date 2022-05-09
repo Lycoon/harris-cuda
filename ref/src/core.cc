@@ -69,6 +69,8 @@ float **convolve(int **image, float **kernel, int imgWidth, int imgHeight, int k
     for (int y = 0; y < imgHeight; y++)
         res[y] = new float[imgWidth];
 
+    // TODO: FLIP KERNEL HORIZONTALLY AND VERTICALLY
+
     for (int imgY = 0; imgY < imgHeight; imgY++)
     {
         for (int imgX = 0; imgX < imgWidth; imgX++)
