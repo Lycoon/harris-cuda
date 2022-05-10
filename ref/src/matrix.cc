@@ -148,6 +148,21 @@ void Matrix::sub(Matrix& m)
     lambda(sub_, m);
 }
 
+Matrix* Matrix::is_close(Matrix& m)
+{
+    return is_close(m, 1.0e-5, 1.0e-8);
+}
+
+Matrix* Matrix::is_close(Matrix& m, float rtol, float atol)
+{
+    auto res = new Matrix(*this);
+    auto is_close_ = [rtol, atol](float a, float b) {
+        return std::abs(a - b) <= (atol + rtol * std::abs(b)) ? 1. : 0.;
+    };
+    res->lambda(is_close_, m);
+    return res;
+}
+
 Matrix* Matrix::harris()
 {
     const auto DERIVATIVE_KERNEL_SIZE = 3;

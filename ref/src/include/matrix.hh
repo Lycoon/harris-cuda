@@ -63,6 +63,9 @@ public:
     void add(Matrix& m);
     void sub(Matrix& m);
 
+    Matrix* is_close(Matrix& m);
+    Matrix* is_close(Matrix& m, float rtol, float atol);
+
     void print();
 
     float* operator[](size_t i);
