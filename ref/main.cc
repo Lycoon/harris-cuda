@@ -26,14 +26,36 @@ int main()
 
     auto mask = new Matrix(*gray);
     mask->lambda([](float e) { return e > 0.00001 ? 1. : 0.; });
-    auto mask_eroded = eroded_mask(*gray);
+    auto mask_eroded = eroded_mask(*gray, 10);
 
     ImagePNG::write_matrix("mask.png", mask);
     ImagePNG::write_matrix("mask_eroded.png", mask_eroded);
+
+    const auto THRESHOLD = 0.1;
+    auto corner_threshold = harris->max() * THRESHOLD;
+
+    auto harris_mask = new Matrix(*harris);
+    harris_mask->lambda(
+        [corner_threshold](float e) { return e > corner_threshold ? 1. : 0.; });
+
+    auto harris_mask_eroded = new Matrix(*harris_mask);
+    harris_mask_eroded->mul(*mask_eroded);
+
+    ImagePNG::write_matrix("harris_mask.png", harris_mask);
+    ImagePNG::write_matrix("harris_mask_eroded.png", harris_mask_eroded);
+
+    auto ell_kernel = ellipse_kernel(20, 20);
+    auto harris_dilated = dilation(*harris, *ell_kernel);
+
+    ImagePNG::write_matrix("harris_dilated.png", harris_dilated);
 
     delete image;
     delete gray;
     delete harris;
     delete mask;
     delete mask_eroded;
+    delete harris_mask;
+    delete harris_mask_eroded;
+    delete ell_kernel;
+    delete harris_dilated;
 }

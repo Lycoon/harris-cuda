@@ -10,4 +10,4 @@ Matrix* erosion(Matrix& matrix, Matrix& kernel);
 Matrix* opening(Matrix& matrix, Matrix& kernel);
 Matrix* closing(Matrix& matrix, Matrix& kernel);
 
-Matrix* eroded_mask(Matrix& matrix);
+Matrix* eroded_mask(Matrix& grayscale_image, size_t border);

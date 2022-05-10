@@ -1,5 +1,7 @@
 #include "include/matrix.hh"
 
+#include <algorithm>
+
 Matrix::Matrix(size_t height_, size_t width_)
     : width(width_)
     , height(height_)
@@ -304,4 +306,14 @@ void Matrix::print()
 float* Matrix::operator[](size_t i)
 {
     return this->mat + (i * this->width);
+}
+
+float Matrix::min()
+{
+    return *std::min_element(this->mat, this->mat + this->width * this->height);
+}
+
+float Matrix::max()
+{
+    return *std::max_element(this->mat, this->mat + this->width * this->height);
 }

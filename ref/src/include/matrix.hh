@@ -67,6 +67,9 @@ public:
 
     float* operator[](size_t i);
 
+    float min();
+    float max();
+
     void lambda(std::function<float(float)> f);
     void lambda(std::function<float(size_t, size_t)> f);
     void lambda(std::function<float(float, float)> f, Matrix& m);

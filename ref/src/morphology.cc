@@ -56,7 +56,7 @@ Matrix* closing(Matrix& matrix, Matrix& kernel)
     return ero;
 }
 
-Matrix* eroded_mask(Matrix& grayscale_image)
+Matrix* eroded_mask(Matrix& grayscale_image, size_t border)
 {
     auto mask = new Matrix(grayscale_image);
     mask->lambda([](float e) { return e > 0.00001 ? 1. : 0.; });
@@ -64,7 +64,7 @@ Matrix* eroded_mask(Matrix& grayscale_image)
     auto rect_kernel = rectangle_kernel(3, 3);
     auto mask_er_tmp = closing(*mask, *rect_kernel);
 
-    auto ell_kernel = ellipse_kernel(20, 20);
+    auto ell_kernel = ellipse_kernel(border * 2, border * 2);
     auto mask_er = erosion(*mask_er_tmp, *ell_kernel);
 
     // bubble2maskeroded =
