@@ -42,6 +42,7 @@ public:
     static Tuple<Matrix, Matrix> gauss_derivatives(Matrix* image,
                                                    int kernelSize);
     static Matrix* convolve(Matrix& matrix, Matrix& kernel);
+    Matrix* harris();
 
     void exp();
     void pow(float power);
