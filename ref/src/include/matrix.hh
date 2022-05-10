@@ -36,12 +36,16 @@ public:
         delete[] this->mat;
     }
 
+    static Matrix* convolve(Matrix& matrix, Matrix& kernel);
+    static Matrix* convolve(Matrix& matrix, Matrix& kernel,
+                            float init_acc_value,
+                            std::function<float(float, float, float)> f);
+
     static Tuple<Matrix, Matrix> mgrid(int start, int end);
     static Matrix* gauss_kernel(int size);
     static Tuple<Matrix, Matrix> gauss_derivative_kernels(int size);
     static Tuple<Matrix, Matrix> gauss_derivatives(Matrix* image,
                                                    int kernelSize);
-    static Matrix* convolve(Matrix& matrix, Matrix& kernel);
     Matrix* harris();
 
     void exp();
@@ -63,13 +67,14 @@ public:
 
     float* operator[](size_t i);
 
+    void lambda(std::function<float(float)> f);
+    void lambda(std::function<float(size_t, size_t)> f);
+    void lambda(std::function<float(float, float)> f, Matrix& m);
+
 public:
     size_t width;
     size_t height;
 
 private:
-    void lambda(std::function<float(float)> f);
-    void lambda(std::function<float(float, float)> f, Matrix& m);
-
     float* mat;
 };

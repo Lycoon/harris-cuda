@@ -51,6 +51,17 @@ void Matrix::lambda(std::function<float(float)> f)
     }
 }
 
+void Matrix::lambda(std::function<float(size_t, size_t)> f)
+{
+    for (size_t i = 0; i < this->height; i++)
+    {
+        for (size_t j = 0; j < this->width; j++)
+        {
+            (*this)[i][j] = f(i, j);
+        }
+    }
+}
+
 void Matrix::lambda(std::function<float(float, float)> f, Matrix& m)
 {
     for (size_t i = 0; i < this->height; i++)
@@ -188,32 +199,38 @@ Matrix* Matrix::harris()
 
 Matrix* Matrix::convolve(Matrix& matrix, Matrix& kernel)
 {
-    // Instantiating convoluted image
+    return Matrix::convolve(matrix, kernel, 0.,
+                            [](float acc, float mat_val, float k_val) {
+                                return acc + mat_val * k_val;
+                            });
+}
+
+Matrix* Matrix::convolve(Matrix& matrix, Matrix& kernel, float init_acc_value,
+                         std::function<float(float, float, float)> f)
+{
     Matrix* res = new Matrix(matrix.height, matrix.width);
 
-    for (size_t imgY = 0; imgY < matrix.height; imgY++)
-    {
-        for (size_t imgX = 0; imgX < matrix.width; imgX++)
+    res->lambda([&matrix, &kernel, init_acc_value, f](size_t imgY,
+                                                      size_t imgX) {
+        float acc = init_acc_value;
+        size_t kI = kernel.height - 1;
+
+        int maxY = ((int)kernel.height) / 2 + kernel.height % 2;
+        for (int kY = -((int)kernel.height) / 2; kY < maxY; kY++, kI--)
         {
-            float acc = 0;
-            size_t kI = kernel.height - 1;
-            for (int kY = -((int)kernel.height) / 2;
-                 kY < ((int)kernel.height) / 2 + 1; kY++, kI--)
+            size_t kJ = kernel.width - 1;
+            int maxX = ((int)kernel.width) / 2 + kernel.width % 2;
+            for (int kX = -((int)kernel.width) / 2; kX < maxX; kX++, kJ--)
             {
-                size_t kJ = kernel.width - 1;
-                for (int kX = -((int)kernel.width) / 2;
-                     kX < ((int)kernel.width) / 2 + 1; kX++, kJ--)
+                if (((int)imgY) + kY >= 0 && imgY + kY < matrix.height
+                    && ((int)imgX) + kX >= 0 && imgX + kX < matrix.width)
                 {
-                    if (((int)imgY) + kY >= 0 && imgY + kY < matrix.height
-                        && ((int)imgX) + kX >= 0 && imgX + kX < matrix.width)
-                    {
-                        acc += matrix[imgY + kY][imgX + kX] * kernel[kI][kJ];
-                    }
+                    acc = f(acc, matrix[imgY + kY][imgX + kX], kernel[kI][kJ]);
                 }
             }
-            (*res)[imgY][imgX] = acc;
         }
-    }
+        return acc;
+    });
 
     return res;
 }
