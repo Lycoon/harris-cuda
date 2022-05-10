@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <cstring>
 #include <functional>
 #include <iostream>
 #include <memory>
@@ -36,10 +37,9 @@ public:
     static Tuple<Matrix, Matrix> mgrid(int start, int end);
     static Matrix* gauss_kernel(int size);
     static Tuple<Matrix, Matrix> gauss_derivative_kernels(int size);
-    static Tuple<Matrix, Matrix> gauss_derivatives(int** image, int imgWidth,
-                                                   int imgHeight, int size);
-    static Matrix* convolve(int** image, Matrix& kernel, int imgWidth,
-                            int imgHeight, int kSize);
+    static Tuple<Matrix, Matrix> gauss_derivatives(Matrix* image,
+                                                   int kernelSize);
+    static Matrix* convolve(Matrix& matrix, Matrix& kernel, int kSize);
 
     void exp();
     void pow(float power);
@@ -60,11 +60,13 @@ public:
 
     float* operator[](size_t i);
 
+public:
+    size_t width;
+    size_t height;
+
 private:
     void lambda(std::function<float(float)> f);
     void lambda(std::function<float(float, float)> f, Matrix& m);
 
     float* mat;
-    size_t width;
-    size_t height;
 };

@@ -127,24 +127,23 @@ void Matrix::sub(Matrix& m)
     lambda(sub_, m);
 }
 
-Matrix* Matrix::convolve(int** image, Matrix& kernel, int imgWidth,
-                         int imgHeight, int kSize)
+Matrix* Matrix::convolve(Matrix& matrix, Matrix& kernel, int kSize)
 {
     // Instantiating convoluted image
-    Matrix* res = new Matrix(imgHeight, imgWidth);
+    Matrix* res = new Matrix(matrix.height, matrix.width);
 
-    for (int imgY = 0; imgY < imgHeight; imgY++)
+    for (int imgY = 0; imgY < matrix.height; imgY++)
     {
-        for (int imgX = 0; imgX < imgWidth; imgX++)
+        for (int imgX = 0; imgX < matrix.width; imgX++)
         {
             float acc = 0;
             for (int kY = -kSize / 2, kI = 0; kY < kSize / 2; kY++, kI++)
             {
                 for (int kX = -kSize / 2, kJ = 0; kX < kSize / 2; kX++, kJ++)
                 {
-                    if (imgY + kY >= 0 && imgY + kY < imgHeight
-                        && imgX + kX >= 0 && imgX + kX < imgWidth)
-                        acc += image[imgY + kY][imgX + kX] * kernel[kJ][kI];
+                    if (imgY + kY >= 0 && imgY + kY < matrix.height
+                        && imgX + kX >= 0 && imgX + kX < matrix.width)
+                        acc += matrix[imgY + kY][imgX + kX] * kernel[kJ][kI];
                 }
             }
             (*res)[imgY][imgX] = acc;
@@ -154,14 +153,12 @@ Matrix* Matrix::convolve(int** image, Matrix& kernel, int imgWidth,
     return res;
 }
 
-Tuple<Matrix, Matrix> Matrix::gauss_derivatives(int** image, int imgWidth,
-                                                int imgHeight, int size)
+Tuple<Matrix, Matrix> Matrix::gauss_derivatives(Matrix* image, int kernelSize)
 {
-    auto gauss = Matrix::gauss_derivative_kernels(size);
+    auto gauss = Matrix::gauss_derivative_kernels(kernelSize);
 
-    auto imx = Matrix::convolve(image, *gauss.first, imgWidth, imgHeight, size);
-    auto imy =
-        Matrix::convolve(image, *gauss.second, imgWidth, imgHeight, size);
+    auto imx = Matrix::convolve(*image, *gauss.first, kernelSize);
+    auto imy = Matrix::convolve(*image, *gauss.second, kernelSize);
 
     return { imx, imy };
 }

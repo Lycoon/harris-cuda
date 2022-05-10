@@ -6,84 +6,148 @@
 #include <stdlib.h>
 #include <string.h>
 
-// png_byte color_type;
-// png_byte bit_depth;
-png_infop info_ptr;
-png_bytep* row_pointers = NULL;
-png_structp png_ptr;
+ImagePNG::ImagePNG()
+    : height(0)
+    , width(0){};
 
-void read_png(char* file_name)
+ImagePNG::ImagePNG(size_t height_, size_t width_)
+    : height(height_)
+    , width(width_){};
+
+// ImagePNG::ImagePNG(ImagePNG& cpy)
+//     : height(cpy.height)
+//     , width(cpy.width)
+// {
+//     this->info_ptr = (png_infop)malloc(sizeof(png_infop));
+//     std::memcpy(this->info_ptr, cpy.info_ptr, sizeof(png_infop));
+
+//     this->row_pointers = (png_bytep*)malloc(cpy.height * sizeof(png_bytep*));
+
+//     for (size_t i = 0; i < cpy.height; i++)
+//     {
+//         this->row_pointers[i] =
+//             (png_bytep)malloc(3 * cpy.width * sizeof(png_bytep));
+
+//         this->row_pointers[i] = cpy.row_pointers[i];
+//     }
+// };
+
+ImagePNG* ImagePNG::read(char* filename)
 {
-    FILE* fp = fopen(file_name, "rb");
-    png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-    info_ptr = png_create_info_struct(png_ptr);
+    ImagePNG* image = new ImagePNG();
+
+    FILE* fp = fopen(filename, "rb");
+    auto png_ptr =
+        png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    auto info_ptr = png_create_info_struct(png_ptr);
     png_init_io(png_ptr, fp);
     png_read_png(png_ptr, info_ptr, PNG_TRANSFORM_IDENTITY, NULL);
-    row_pointers = png_get_rows(png_ptr, info_ptr);
-    // png_destroy_read_struct(&png_ptr, NULL, NULL);
+    auto row_pointers = png_get_rows(png_ptr, info_ptr);
+
+    image->width = png_get_image_width(png_ptr, info_ptr);
+    image->height = png_get_image_height(png_ptr, info_ptr);
+
+    image->set_info(info_ptr);
+    image->set_rows_ptr(row_pointers);
+
+    png_destroy_read_struct(&png_ptr, NULL, NULL);
     fclose(fp);
+
+    return image;
 }
 
-void write_png(char* file_name)
+void ImagePNG::write(char* filename)
 {
-    FILE* fp = fopen(file_name, "wb");
+    FILE* fp = fopen(filename, "wb");
     png_structp png_ptr =
         png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
     png_init_io(png_ptr, fp);
-    png_set_rows(png_ptr, info_ptr, row_pointers);
-    png_write_png(png_ptr, info_ptr, PNG_TRANSFORM_IDENTITY, NULL);
-    png_destroy_write_struct(&png_ptr, &info_ptr);
+    png_set_rows(png_ptr, this->info_ptr, this->row_pointers);
+    png_write_png(png_ptr, this->info_ptr, PNG_TRANSFORM_IDENTITY, NULL);
+    png_destroy_write_struct(&png_ptr, &this->info_ptr);
+
     fclose(fp);
 }
 
-void save(Matrix* image, int width, int height)
+void ImagePNG::write_matrix(char* filename, Matrix* image)
 {
-    float max = 0, min = 0;
-    for (int y = 0; y < height; y++)
+    // Open file for writing (binary mode)
+    FILE* fp = fopen(filename, "wb");
+
+    png_structp png_ptr =
+        png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+
+    // Initialize info structure
+    png_infop info_ptr = png_create_info_struct(png_ptr);
+    png_init_io(png_ptr, fp);
+
+    // Write header (8 bit colour depth)
+    png_set_IHDR(png_ptr, info_ptr, image->width, image->height, 8,
+                 PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
+                 PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+
+    png_write_info(png_ptr, info_ptr);
+    // Allocate memory for one row (3 bytes per pixel - RGB)
+    png_bytep row = (png_bytep)malloc(3 * image->width * sizeof(png_byte));
+
+    // Write image data
+    for (size_t y = 0; y < image->height; y++)
     {
-        for (int x = 0; x < width; x++)
+        for (size_t x = 0; x < image->width; x++)
         {
-            max = std::max((*image)[y][x], max);
-            min = std::min((*image)[y][x], min);
+            for (size_t k = 0; k < 3; k++)
+            {
+                row[x * 3 + k] = (*image)[y][x];
+            }
         }
+        png_write_row(png_ptr, row);
     }
 
-    for (int y = 0; y < height; y++)
-    {
-        png_bytep row = row_pointers[y];
-        memset(row, 0, width);
-        for (int x = 0; x < width; x++)
-        {
-            png_bytep px = &(row[x * 3]);
-            auto val = (((*image)[y][x] - min) * 255.) / (max - min);
+    // End write
+    png_write_end(png_ptr, NULL);
 
-            px[0] = val;
-            px[1] = val;
-            px[2] = val;
-        }
-    }
-
-    write_png("bruh.png");
+    fclose(fp);
+    png_free_data(png_ptr, info_ptr, PNG_FREE_ALL, -1);
+    png_destroy_write_struct(&png_ptr, (png_infopp)NULL);
+    free(row);
+    free(info_ptr);
 }
 
-int** to_grayscale()
+ImagePNG* ImagePNG::grayscale()
 {
-    auto width = png_get_image_width(png_ptr, info_ptr);
-    auto height = png_get_image_height(png_ptr, info_ptr);
+    ImagePNG* image = new ImagePNG(*this);
 
-    int** res = new int*[height];
-    for (int y = 0; y < height; y++)
-        res[y] = new int[width];
-
-    for (int y = 0; y < height; y++)
+    for (size_t y = 0; y < this->height; y++)
     {
-        png_bytep row = row_pointers[y];
-        for (int x = 0; x < width; x++)
+        png_bytep row = this->row_pointers[y];
+        auto new_row = image->row_pointers[y];
+
+        for (size_t x = 0; x < this->width; x++)
         {
             png_bytep px = &(row[x * 3]);
-            res[y][x] = px[0] * 0.299 + px[1] * 0.587 + px[2] * 0.114;
+            png_bytep new_px = &(new_row[x * 3]);
+
+            auto gray = px[0] * 0.299 + px[1] * 0.587 + px[2] * 0.114;
+            new_px[0] = new_px[1] = new_px[2] = gray;
         }
     }
 
-    return res;
+    return image;
+}
+
+Matrix* ImagePNG::grayscale_matrix()
+{
+    Matrix* mat = new Matrix(this->height, this->width);
+    ImagePNG* grayscale = this->grayscale();
+
+    for (size_t i = 0; i < this->height; i++)
+    {
+        for (size_t j = 0; j < this->height; j++)
+        {
+            (*mat)[i][j] = grayscale->row_pointers[i][j * 3];
+        }
+    }
+
+    // delete grayscale;
+    return mat;
 }

@@ -14,16 +14,15 @@ int main()
     auto derivative = Matrix::gauss_derivative_kernels(1);
     derivative.second->print();
 
-    read_png((char*)"../twin_it/bubbles_200dpi/b003.png");
-    int** grayscaled = to_grayscale();
+    auto image = ImagePNG::read((char*)"../twin_it/bubbles_200dpi/b003.png");
+    auto gray = image->grayscale_matrix();
 
-    auto derivatives = Matrix::gauss_derivatives(grayscaled, 254, 251, 3);
-    // derivatives.first->print();
-    save(derivatives.first, 254, 251);
+    auto derivatives = Matrix::gauss_derivatives(gray, 3);
 
-    for (int y = 0; y < 251; y++)
-        delete[] grayscaled[y];
-    delete[] grayscaled;
+    ImagePNG::write_matrix("out.png", derivatives.first);
+
+    delete gray;
+    delete image;
 
     // auto gauss = Matrix::gauss_derivative_kernels(1);
     // gauss.first->print();
