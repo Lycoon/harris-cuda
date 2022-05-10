@@ -127,7 +127,7 @@ void Matrix::sub(Matrix& m)
     lambda(sub_, m);
 }
 
-Matrix* Matrix::convolve(Matrix& matrix, Matrix& kernel, int kSize)
+Matrix* Matrix::convolve(Matrix& matrix, Matrix& kernel)
 {
     // Instantiating convoluted image
     Matrix* res = new Matrix(matrix.height, matrix.width);
@@ -137,15 +137,19 @@ Matrix* Matrix::convolve(Matrix& matrix, Matrix& kernel, int kSize)
         for (size_t imgX = 0; imgX < matrix.width; imgX++)
         {
             float acc = 0;
-            size_t kI = 0;
-            for (int kY = -kSize / 2; kY < kSize / 2; kY++, kI++)
+            size_t kI = kernel.height - 1;
+            for (int kY = -((int)kernel.height) / 2;
+                 kY < ((int)kernel.height) / 2 + 1; kY++, kI--)
             {
-                size_t kJ = 0;
-                for (int kX = -kSize / 2; kX < kSize / 2; kX++, kJ++)
+                size_t kJ = kernel.width - 1;
+                for (int kX = -((int)kernel.width) / 2;
+                     kX < ((int)kernel.width) / 2 + 1; kX++, kJ--)
                 {
                     if (((int)imgY) + kY >= 0 && imgY + kY < matrix.height
                         && ((int)imgX) + kX >= 0 && imgX + kX < matrix.width)
-                        acc += matrix[imgY + kY][imgX + kX] * kernel[kJ][kI];
+                    {
+                        acc += matrix[imgY + kY][imgX + kX] * kernel[kI][kJ];
+                    }
                 }
             }
             (*res)[imgY][imgX] = acc;
@@ -159,8 +163,8 @@ Tuple<Matrix, Matrix> Matrix::gauss_derivatives(Matrix* image, int kernelSize)
 {
     auto gauss = Matrix::gauss_derivative_kernels(kernelSize);
 
-    auto imx = Matrix::convolve(*image, *gauss.first, kernelSize);
-    auto imy = Matrix::convolve(*image, *gauss.second, kernelSize);
+    auto imx = Matrix::convolve(*image, *gauss.first);
+    auto imy = Matrix::convolve(*image, *gauss.second);
 
     return { imx, imy };
 }

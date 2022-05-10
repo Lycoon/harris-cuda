@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <limits>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -96,15 +97,25 @@ void ImagePNG::write_matrix(char filename[], Matrix* image)
     // Allocate memory for one row (3 bytes per pixel - RGB)
     png_bytep row = (png_bytep)malloc(3 * image->width * sizeof(png_byte));
 
+    float min = std::numeric_limits<float>::max();
+    float max = std::numeric_limits<float>::min();
+    for (size_t y = 0; y < image->height; y++)
+    {
+        for (size_t x = 0; x < image->width; x++)
+        {
+            min = std::min(min, (*image)[y][x]);
+            max = std::max(max, (*image)[y][x]);
+        }
+    }
+
     // Write image data
     for (size_t y = 0; y < image->height; y++)
     {
         for (size_t x = 0; x < image->width; x++)
         {
+            float grey = (((*image)[y][x] - min) * 255.f) / (max - min);
             for (size_t k = 0; k < 3; k++)
-            {
-                row[x * 3 + k] = (*image)[y][x];
-            }
+                row[x * 3 + k] = grey;
         }
         png_write_row(png_ptr, row);
     }
