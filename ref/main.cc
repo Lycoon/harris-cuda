@@ -19,7 +19,8 @@ int main()
 
     auto derivatives = Matrix::gauss_derivatives(gray, 3);
 
-    ImagePNG::write_matrix("out.png", derivatives.first);
+    ImagePNG::write_matrix("gray.png", gray);
+    ImagePNG::write_matrix("gauss.png", derivatives.first);
 
     delete gray;
     delete image;
