@@ -9,11 +9,10 @@ class ImagePNG
 public:
     ImagePNG();
     ImagePNG(size_t height_, size_t width_);
-    // ImagePNG(ImagePNG& cpy);
+    ImagePNG(ImagePNG& img);
 
     ~ImagePNG()
     {
-        free(info_ptr);
         for (size_t i = 0; i < height; i++)
         {
             free(row_pointers[i]);
@@ -22,27 +21,18 @@ public:
     }
 
     static ImagePNG* read(char* filename);
-    ImagePNG* grayscale();
-    Matrix* grayscale_matrix();
-    void write(char* filename);
     static void write_matrix(char* filename, Matrix* image);
 
-    void set_info(png_infop info_ptr)
-    {
-        this->info_ptr = info_ptr;
-    }
+    ImagePNG* grayscale();
 
-    void set_rows_ptr(png_bytep* row_pointers)
-    {
-        this->row_pointers = row_pointers;
-    }
+    Matrix* grayscale_matrix();
+    void write(char* filename);
 
 public:
     size_t height;
     size_t width;
 
 private:
-    png_infop info_ptr;
     png_bytep* row_pointers = NULL;
 };
 

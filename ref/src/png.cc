@@ -14,23 +14,21 @@ ImagePNG::ImagePNG(size_t height_, size_t width_)
     : height(height_)
     , width(width_){};
 
-// ImagePNG::ImagePNG(ImagePNG& cpy)
-//     : height(cpy.height)
-//     , width(cpy.width)
-// {
-//     this->info_ptr = (png_infop)malloc(sizeof(png_infop));
-//     std::memcpy(this->info_ptr, cpy.info_ptr, sizeof(png_infop));
+ImagePNG::ImagePNG(ImagePNG& img)
+{
+    this->height = img.height;
+    this->width = img.width;
 
-//     this->row_pointers = (png_bytep*)malloc(cpy.height * sizeof(png_bytep*));
+    auto row_pointers = (png_bytepp)malloc(img.height * sizeof(png_bytep));
+    for (size_t i = 0; i < img.height; i++)
+    {
+        row_pointers[i] = (png_bytep)malloc(3 * img.width * sizeof(png_byte));
+        std::memcpy(row_pointers[i], img.row_pointers[i],
+                    3 * img.width * sizeof(png_byte));
+    }
 
-//     for (size_t i = 0; i < cpy.height; i++)
-//     {
-//         this->row_pointers[i] =
-//             (png_bytep)malloc(3 * cpy.width * sizeof(png_bytep));
-
-//         this->row_pointers[i] = cpy.row_pointers[i];
-//     }
-// };
+    this->row_pointers = row_pointers;
+}
 
 ImagePNG* ImagePNG::read(char* filename)
 {
@@ -47,29 +45,37 @@ ImagePNG* ImagePNG::read(char* filename)
     image->width = png_get_image_width(png_ptr, info_ptr);
     image->height = png_get_image_height(png_ptr, info_ptr);
 
-    image->set_info(info_ptr);
-    image->set_rows_ptr(row_pointers);
+    image->row_pointers = row_pointers;
 
+    free(info_ptr);
     png_destroy_read_struct(&png_ptr, NULL, NULL);
     fclose(fp);
 
     return image;
 }
 
-void ImagePNG::write(char* filename)
+void ImagePNG::write(char filename[])
 {
     FILE* fp = fopen(filename, "wb");
     png_structp png_ptr =
         png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
     png_init_io(png_ptr, fp);
-    png_set_rows(png_ptr, this->info_ptr, this->row_pointers);
-    png_write_png(png_ptr, this->info_ptr, PNG_TRANSFORM_IDENTITY, NULL);
-    png_destroy_write_struct(&png_ptr, &this->info_ptr);
+
+    png_infop info_ptr = png_create_info_struct(png_ptr);
+    png_set_IHDR(png_ptr, info_ptr, this->width, this->height, 8,
+                 PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
+                 PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+
+    png_write_info(png_ptr, info_ptr);
+
+    png_set_rows(png_ptr, info_ptr, this->row_pointers);
+    png_write_png(png_ptr, info_ptr, PNG_TRANSFORM_IDENTITY, NULL);
+    png_destroy_write_struct(&png_ptr, &info_ptr);
 
     fclose(fp);
 }
 
-void ImagePNG::write_matrix(char* filename, Matrix* image)
+void ImagePNG::write_matrix(char filename[], Matrix* image)
 {
     // Open file for writing (binary mode)
     FILE* fp = fopen(filename, "wb");
@@ -138,16 +144,18 @@ ImagePNG* ImagePNG::grayscale()
 Matrix* ImagePNG::grayscale_matrix()
 {
     Matrix* mat = new Matrix(this->height, this->width);
-    ImagePNG* grayscale = this->grayscale();
 
     for (size_t i = 0; i < this->height; i++)
     {
+        png_bytep row = this->row_pointers[i];
         for (size_t j = 0; j < this->height; j++)
         {
-            (*mat)[i][j] = grayscale->row_pointers[i][j * 3];
+            png_bytep px = &(row[j * 3]);
+
+            auto gray = px[0] * 0.299 + px[1] * 0.587 + px[2] * 0.114;
+            (*mat)[i][j] = gray;
         }
     }
 
-    // delete grayscale;
     return mat;
 }

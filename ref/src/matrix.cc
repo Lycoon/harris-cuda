@@ -132,17 +132,19 @@ Matrix* Matrix::convolve(Matrix& matrix, Matrix& kernel, int kSize)
     // Instantiating convoluted image
     Matrix* res = new Matrix(matrix.height, matrix.width);
 
-    for (int imgY = 0; imgY < matrix.height; imgY++)
+    for (size_t imgY = 0; imgY < matrix.height; imgY++)
     {
-        for (int imgX = 0; imgX < matrix.width; imgX++)
+        for (size_t imgX = 0; imgX < matrix.width; imgX++)
         {
             float acc = 0;
-            for (int kY = -kSize / 2, kI = 0; kY < kSize / 2; kY++, kI++)
+            size_t kI = 0;
+            for (int kY = -kSize / 2; kY < kSize / 2; kY++, kI++)
             {
-                for (int kX = -kSize / 2, kJ = 0; kX < kSize / 2; kX++, kJ++)
+                size_t kJ = 0;
+                for (int kX = -kSize / 2; kX < kSize / 2; kX++, kJ++)
                 {
-                    if (imgY + kY >= 0 && imgY + kY < matrix.height
-                        && imgX + kX >= 0 && imgX + kX < matrix.width)
+                    if (((int)imgY) + kY >= 0 && imgY + kY < matrix.height
+                        && ((int)imgX) + kX >= 0 && imgX + kX < matrix.width)
                         acc += matrix[imgY + kY][imgX + kX] * kernel[kJ][kI];
                 }
             }

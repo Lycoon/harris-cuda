@@ -18,7 +18,7 @@ include_directories(
 file(GLOB all_SRCS
     "src/include/*.hh"
     "src/*.cc"
-    
+
     main.cc
 )
 
