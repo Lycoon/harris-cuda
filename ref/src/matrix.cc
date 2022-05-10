@@ -14,6 +14,14 @@ Matrix::Matrix(size_t height_, size_t width_)
     lambda(reset);
 };
 
+Matrix::Matrix(Matrix& matrix)
+    : width(matrix.width)
+    , height(matrix.height)
+{
+    this->mat = new float[height * width * sizeof(float)];
+    std::memcpy(this->mat, matrix.mat, height * width * sizeof(float));
+};
+
 Tuple<Matrix, Matrix> Matrix::mgrid(int start, int end)
 {
     int size = end - start;

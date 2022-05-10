@@ -29,6 +29,8 @@ class Matrix
 {
 public:
     Matrix(size_t width_, size_t height_);
+    Matrix(Matrix& matrix);
+
     ~Matrix()
     {
         delete[] this->mat;
