@@ -64,6 +64,17 @@ void Matrix::lambda(std::function<float(size_t, size_t)> f)
     }
 }
 
+void Matrix::lambda(std::function<float(Matrix*, size_t, size_t)> f)
+{
+    for (size_t i = 0; i < this->height; i++)
+    {
+        for (size_t j = 0; j < this->width; j++)
+        {
+            (*this)[i][j] = f(this, i, j);
+        }
+    }
+}
+
 void Matrix::lambda(std::function<float(float, float)> f, Matrix& m)
 {
     for (size_t i = 0; i < this->height; i++)
@@ -331,4 +342,39 @@ float Matrix::min()
 float Matrix::max()
 {
     return *std::max_element(this->mat, this->mat + this->width * this->height);
+}
+
+std::vector<std::tuple<size_t, size_t>> Matrix::points()
+{
+    std::vector<std::tuple<size_t, size_t>> vec = {};
+
+    for (size_t i = 0; i < this->height; i++)
+    {
+        for (size_t j = 0; j < this->width; j++)
+        {
+            auto a = (*this)[i][j];
+            if (a > 1e-6 || a < -1e-6)
+                vec.emplace_back(i, j);
+        }
+    }
+
+    return vec;
+}
+
+std::vector<std::tuple<size_t, size_t>> Matrix::points(float min, float max)
+{
+    std::vector<std::tuple<size_t, size_t>> vec = {};
+
+    for (size_t i = 0; i < this->height; i++)
+    {
+        for (size_t j = 0; j < this->width; j++)
+        {
+            auto a = (*this)[i][j];
+            // std::cout << a << std::endl;
+            if (a > min && a < max)
+                vec.emplace_back(i, j);
+        }
+    }
+
+    return vec;
 }

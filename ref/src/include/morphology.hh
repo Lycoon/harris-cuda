@@ -11,3 +11,4 @@ Matrix* opening(Matrix& matrix, Matrix& kernel);
 Matrix* closing(Matrix& matrix, Matrix& kernel);
 
 Matrix* eroded_mask(Matrix& grayscale_image, size_t border);
+Matrix* harris_points(Matrix& harrisim);

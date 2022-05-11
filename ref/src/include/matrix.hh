@@ -5,6 +5,7 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <vector>
 
 template <typename F, typename S>
 class Tuple
@@ -66,6 +67,10 @@ public:
     Matrix* is_close(Matrix& m);
     Matrix* is_close(Matrix& m, float rtol, float atol);
 
+    std::vector<std::tuple<size_t, size_t>> points();
+    std::vector<std::tuple<size_t, size_t>> points(float min,
+                                                   float max = __FLT_MAX__);
+
     void print();
 
     float* operator[](size_t i);
@@ -75,6 +80,7 @@ public:
 
     void lambda(std::function<float(float)> f);
     void lambda(std::function<float(size_t, size_t)> f);
+    void lambda(std::function<float(Matrix*, size_t, size_t)> f);
     void lambda(std::function<float(float, float)> f, Matrix& m);
 
 public:
