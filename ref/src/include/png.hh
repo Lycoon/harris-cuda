@@ -38,8 +38,3 @@ public:
 private:
     png_bytep* row_pointers = NULL;
 };
-
-void read_png(char* file_name);
-void write_png(char* file_name);
-void save(Matrix* image, int width, int height);
-int** to_grayscale();
