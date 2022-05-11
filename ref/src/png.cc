@@ -159,7 +159,7 @@ Matrix* ImagePNG::grayscale_matrix()
     for (size_t i = 0; i < this->height; i++)
     {
         png_bytep row = this->row_pointers[i];
-        for (size_t j = 0; j < this->height; j++)
+        for (size_t j = 0; j < this->width; j++)
         {
             png_bytep px = &(row[j * 3]);
 
