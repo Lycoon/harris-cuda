@@ -2,11 +2,13 @@
 #include <cstddef>
 #include <memory>
 
-struct rgb8_t
+#include "png.hh"
+
+struct rgb_png
 {
-    std::uint8_t r;
-    std::uint8_t g;
-    std::uint8_t b;
+    png_byte r;
+    png_byte g;
+    png_byte b;
 };
 
 void harris(char* host_buffer, size_t width, size_t height,

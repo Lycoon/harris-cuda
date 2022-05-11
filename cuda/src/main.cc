@@ -1,4 +1,5 @@
 #include <cstddef>
+#include <cstring>
 #include <iostream>
 #include <memory>
 
@@ -37,15 +38,24 @@ int main(int argc, char** argv)
 
     auto image = ImagePNG::read((char*)"../twin_it/bubbles_200dpi/b006.png");
 
-    // Create buffer
-    int stride = image->width * sizeof(png_byte) * 3;
+    // Create buffer (will need pitch)
+    int stride = image->width * sizeof(rgb_png);
+    auto buffer = std::make_unique<std::byte[]>(image->height * stride);
 
-    std::cout << "ok maguele" << std::endl;
+    for (size_t i = 0; i < image->height; i++)
+    {
+        memcpy(buffer.get() + i * stride, image->row_pointers[i], stride);
+    }
+
     // harris
-    harris(reinterpret_cast<char*>(image->row_pointers), image->width,
-           image->height, stride);
+    harris(reinterpret_cast<char*>(buffer.get()), image->width, image->height,
+           stride);
 
-    // Save
+    for (size_t i = 0; i < image->height; i++)
+    {
+        memcpy(image->row_pointers[i], buffer.get() + i * stride, stride);
+    }
+
     write_png(image->row_pointers, image->width, image->height, stride,
               filename.c_str());
 

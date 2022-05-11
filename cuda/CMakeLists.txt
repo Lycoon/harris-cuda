@@ -36,7 +36,7 @@ find_package(PNG REQUIRED)
 find_package(TBB REQUIRED)
 
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -W -Wall -fsanitize=address")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -W -Wall")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
 
@@ -53,7 +53,7 @@ set_target_properties(harris_cu PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 # set_target_properties(render_cpu_ref PROPERTIES IMPORTED_LOCATION ${PROJECT_SOURCE_DIR}/librender_cpu_ref.so)
 
 file(GLOB all_SRCS
-    "src/include/*.hh"
+    "src/include/png.hh"
     "src/main.cc"
     "src/png.cc"
 

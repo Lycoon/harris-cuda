@@ -17,8 +17,8 @@
 
 #define abortError(msg) _abortError(msg, __FUNCTION__, __LINE__)
 
-__global__ void grayscale(rgb8_t* buffer, rgb8_t* out_buf, size_t width,
-                          size_t height, size_t pitch_buf, size_t pitch_out_buf)
+__global__ void grayscale(char* buffer, size_t width, size_t height,
+                          size_t pitch)
 {
     int x = blockDim.x * blockIdx.x + threadIdx.x;
     int y = blockDim.y * blockIdx.y + threadIdx.y;
@@ -26,16 +26,14 @@ __global__ void grayscale(rgb8_t* buffer, rgb8_t* out_buf, size_t width,
     if (x >= width || y >= height)
         return;
 
-    rgb8_t* line = buffer + y * pitch_buf;
-    rgb8_t* out_line = out_buf + y * pitch_out_buf;
+    rgb_png* line = (rgb_png*)(buffer + y * pitch);
 
     float r = static_cast<float>(line[x].r) * 0.299;
     float g = static_cast<float>(line[x].g) * 0.587;
     float b = static_cast<float>(line[x].b) * 0.114;
 
-    rgb8_t gray = { static_cast<uint8_t>(r), static_cast<uint8_t>(g),
-                    static_cast<uint8_t>(b) };
-    out_line[x] = gray;
+    png_byte gray = static_cast<uint8_t>(r + g + b);
+    line[x] = { gray, gray, gray };
 }
 
 void harris(char* host_buffer, size_t width, size_t height,
@@ -43,12 +41,17 @@ void harris(char* host_buffer, size_t width, size_t height,
 {
     cudaError_t rc = cudaSuccess;
 
-    rgb8_t* gray;
+    char* gray;
     size_t pitch;
 
-    rc = cudaMallocPitch(&gray, &pitch, width * sizeof(rgb8_t), height);
+    rc = cudaMallocPitch(&gray, &pitch, width * sizeof(rgb_png), height);
     if (rc)
         abortError("Fail buffer allocation");
+
+    rc = cudaMemcpy2D(gray, pitch, host_buffer, stride, stride, height,
+                      cudaMemcpyHostToDevice);
+    if (rc)
+        abortError("Unable to copy buffer from memory");
 
     int bsize = 32;
     int w = std::ceil((float)width / bsize);
@@ -57,13 +60,12 @@ void harris(char* host_buffer, size_t width, size_t height,
     dim3 dimBlock(bsize, bsize);
     dim3 dimGrid(w, h);
 
-    grayscale<<<dimGrid, dimBlock>>>((rgb8_t*)host_buffer, gray, width, height,
-                                     stride, pitch);
+    grayscale<<<dimGrid, dimBlock>>>(gray, width, height, pitch);
 
     if (cudaPeekAtLastError())
         abortError("Computation Error");
 
-    rc = cudaMemcpy2D(host_buffer, stride, gray, pitch, width * sizeof(rgb8_t),
+    rc = cudaMemcpy2D(host_buffer, stride, gray, pitch, width * sizeof(rgb_png),
                       height, cudaMemcpyDeviceToHost);
     if (rc)
         abortError("Unable to copy buffer back to memory");
