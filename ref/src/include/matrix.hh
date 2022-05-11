@@ -26,6 +26,8 @@ public:
     S* second;
 };
 
+using Point = std::tuple<size_t, size_t>;
+
 class Matrix
 {
 public:
@@ -67,9 +69,8 @@ public:
     Matrix* is_close(Matrix& m);
     Matrix* is_close(Matrix& m, float rtol, float atol);
 
-    std::vector<std::tuple<size_t, size_t>> points();
-    std::vector<std::tuple<size_t, size_t>> points(float min,
-                                                   float max = __FLT_MAX__);
+    std::vector<Point> points();
+    std::vector<Point> points(float min, float max = __FLT_MAX__);
 
     void print();
 

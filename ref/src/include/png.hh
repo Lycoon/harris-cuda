@@ -22,6 +22,9 @@ public:
 
     static ImagePNG* read(char* filename);
     static void write_matrix(char* filename, Matrix* image);
+    static void write_matrix(char* filename, Matrix* image, Matrix* points);
+    static void write_matrix(char* filename, Matrix* image, Matrix* points1,
+                             Matrix* points2);
 
     ImagePNG* grayscale();
 

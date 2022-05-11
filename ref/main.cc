@@ -13,21 +13,15 @@ int main()
 
     auto gray = image->grayscale_matrix();
     auto harris = gray->harris();
-    auto detection = harris_points(*harris);
 
-    auto points = detection->points(0.5, 1.5);
-    std::cout << points.size() << std::endl;
-
-    for (auto it : points)
-    {
-        std::cout << std::get<0>(it) << " " << std::get<1>(it) << std::endl;
-    }
+    auto harris_resp = harris_response(*harris);
+    auto best = best_harris_points(*harris);
 
     ImagePNG::write_matrix("gray.png", gray);
-    ImagePNG::write_matrix("detect.png", detection);
+    ImagePNG::write_matrix("harris.png", harris_resp);
 
     delete image;
     delete gray;
     delete harris;
-    delete detection;
+    delete harris_resp;
 }

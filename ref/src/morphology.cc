@@ -78,21 +78,21 @@ Matrix* eroded_mask(Matrix& grayscale_image, size_t border)
     return mask_er;
 }
 
-Matrix* harris_points(Matrix& harrisim)
+Matrix* harris_response(Matrix& harris_img)
 {
     auto ell_kernel = ellipse_kernel(20, 20);
-    auto dil = dilation(harrisim, *ell_kernel);
+    auto dil = dilation(harris_img, *ell_kernel);
 
-    auto is_close = dil->is_close(harrisim);
-    auto mask = eroded_mask(harrisim, 10);
+    auto is_close = dil->is_close(harris_img);
+    auto mask = eroded_mask(harris_img, 10);
 
-    auto detection = new Matrix(harrisim);
+    auto detection = new Matrix(harris_img);
 
     auto min = detection->min();
     auto max = detection->max();
 
     auto lambda_ = [max, min](float a) {
-        return a > min + 0.5 * (max - min) ? 1 : 0;
+        return a > min + 0.5 * (max - min) ? a : 0;
     };
     detection->lambda(lambda_);
     detection->mul(*is_close);
@@ -104,4 +104,30 @@ Matrix* harris_points(Matrix& harrisim)
     delete mask;
 
     return detection;
+}
+
+std::vector<Point> best_harris_points(Matrix& harris_img)
+{
+    auto harris_resp = harris_response(harris_img);
+    auto points = harris_resp->points();
+
+    auto lambda_ = [&harris_resp](Point p1, Point p2) {
+        return (*harris_resp)[std::get<0>(p1)][std::get<1>(p1)]
+            > (*harris_resp)[std::get<0>(p2)][std::get<1>(p2)];
+    };
+
+    std::sort(points.begin(), points.end(), lambda_);
+    points.resize(std::min(2000UL, points.size()));
+
+    // for (size_t i = 0; i < points.size(); i++)
+    // {
+    //     auto y = std::get<0>(points[i]);
+    //     auto x = std::get<1>(points[i]);
+    //     std::cout << x << ", " << y << std::endl;
+    //     std::cout << (*harris_resp)[y][x] << std::endl;
+    // }
+
+    delete harris_resp;
+
+    return points;
 }
