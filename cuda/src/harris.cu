@@ -80,8 +80,6 @@ __device__ void convolve(char* out, char* in, size_t i, size_t j, size_t width,
                          size_t height, size_t pitch, const float* kernel,
                          size_t kernel_size)
 {
-    long k_size = static_cast<long>(kernel_size);
-
     float* line = (float*)(out + i * pitch);
 
     float acc = 0;
@@ -106,26 +104,86 @@ __device__ void convolve(char* out, char* in, size_t i, size_t j, size_t width,
     line[j] = acc;
 }
 
-__global__ void gauss_derivatives(char* buffer, size_t pitch, size_t width,
-                                  size_t height, char* buffers,
-                                  size_t pitch_buffers)
+__device__ char* nth_buffer(char* buffers, size_t n, size_t pitch,
+                            size_t height)
 {
-    const size_t IM_X = 0;
-    const size_t IM_Y = 1;
+    return buffers + n * height * pitch;
+}
 
+__device__ float* line(char* buf, size_t n, size_t pitch)
+{
+    return (float*)(buf + n * pitch);
+}
+
+__global__ void gauss_derivatives(char* buffer, size_t pitch, size_t width,
+                                  size_t height, char* buffers)
+{
     int x = blockDim.x * blockIdx.x + threadIdx.x;
     int y = blockDim.y * blockIdx.y + threadIdx.y;
 
     if (x >= width || y >= height)
         return;
 
-    char* im_x = (buffers + IM_X * height * pitch_buffers);
-    char* im_y = (buffers + IM_Y * height * pitch_buffers);
+    char* im_x = nth_buffer(buffers, 0, pitch, height);
+    char* im_y = nth_buffer(buffers, 1, pitch, height);
 
-    convolve(im_x, buffer, y, x, width, height, pitch_buffers, GAUSS_X,
+    char* im_xx = nth_buffer(buffers, 3, pitch, height);
+    char* im_xy = nth_buffer(buffers, 4, pitch, height);
+    char* im_yy = nth_buffer(buffers, 5, pitch, height);
+
+    convolve(im_x, buffer, y, x, width, height, pitch, GAUSS_X,
              GAUSS_KERNEL_DIM);
-    convolve(im_y, buffer, y, x, width, height, pitch_buffers, GAUSS_Y,
+    convolve(im_y, buffer, y, x, width, height, pitch, GAUSS_Y,
              GAUSS_KERNEL_DIM);
+
+    __syncthreads();
+
+    {
+        float* line_im_x = line(im_x, y, pitch);
+        float* line_im_y = line(im_y, y, pitch);
+        float* line_im_xx = line(im_xx, y, pitch);
+        float* line_im_xy = line(im_xy, y, pitch);
+        float* line_im_yy = line(im_yy, y, pitch);
+
+        line_im_xx[x] = line_im_x[x] * line_im_x[x];
+        line_im_xy[x] = line_im_x[x] * line_im_y[x];
+        line_im_yy[x] = line_im_y[x] * line_im_y[x];
+    }
+
+    char* W_xx = nth_buffer(buffers, 0, pitch, height);
+    char* W_xy = nth_buffer(buffers, 1, pitch, height);
+    char* W_yy = nth_buffer(buffers, 2, pitch, height);
+
+    __syncthreads();
+
+    convolve(W_xx, im_xx, y, x, width, height, pitch, GAUSS_KERNEL,
+             GAUSS_KERNEL_DIM);
+    convolve(W_xy, im_xy, y, x, width, height, pitch, GAUSS_KERNEL,
+             GAUSS_KERNEL_DIM);
+    convolve(W_yy, im_yy, y, x, width, height, pitch, GAUSS_KERNEL,
+             GAUSS_KERNEL_DIM);
+
+    __syncthreads();
+
+    {
+        float* line_W_xx = line(W_xx, y, pitch);
+        float* line_W_xy = line(W_xy, y, pitch);
+        float* line_W_yy = line(W_yy, y, pitch);
+
+        // char* W_xy_2 = W_xy;
+        float* line_W_xy_2 = line_W_xy;
+        line_W_xy_2[x] = line_W_xy[x] * line_W_xy[x];
+
+        char* W_tr = nth_buffer(buffers, 6, pitch, height);
+        float* line_W_tr = line(W_tr, y, pitch);
+        line_W_tr[x] = line_W_xx[x] + line_W_yy[x] + 1;
+
+        // char* W_det = W_xx;
+        float* line_W_det = line_W_xx;
+        line_W_det[x] = line_W_xx[x] * line_W_yy[x] - line_W_xy_2[x];
+
+        line_W_det[x] = line_W_det[x] / line_W_tr[x];
+    }
 }
 
 void harris(char* host_buffer, char* out_buffer, size_t width, size_t height,
@@ -151,7 +209,7 @@ void harris(char* host_buffer, char* out_buffer, size_t width, size_t height,
         abortError("Fail buffer allocation");
 
     rc = cudaMallocPitch(&harris_buffers, &pitch_harris_buffers,
-                         width * sizeof(float), 2 * height);
+                         width * sizeof(float), 10 * height);
     if (rc)
         abortError("Fail buffer allocation");
 
@@ -170,14 +228,13 @@ void harris(char* host_buffer, char* out_buffer, size_t width, size_t height,
     img2float<<<dimGrid, dimBlock>>>(image, pitch_img, buffer, pitch_buffer,
                                      width, height);
     gauss_derivatives<<<dimGrid, dimBlock>>>(buffer, pitch_buffer, width,
-                                             height, harris_buffers,
-                                             pitch_harris_buffers);
+                                             height, harris_buffers);
 
     if (cudaPeekAtLastError())
         abortError("Computation Error");
 
-    auto im_y = harris_buffers + 1 * height * pitch_harris_buffers;
-    rc = cudaMemcpy2D(out_buffer, width * sizeof(float), im_y,
+    char* im = harris_buffers + 0 * height * pitch_harris_buffers;
+    rc = cudaMemcpy2D(out_buffer, width * sizeof(float), im,
                       pitch_harris_buffers, width * sizeof(float), height,
                       cudaMemcpyDeviceToHost);
     if (rc)
