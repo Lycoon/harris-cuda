@@ -99,9 +99,10 @@ __device__ const float ELLIPSE[] = {
     1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0
 };
 
+template <class F>
 __device__ void convolve(char* out, char* in, size_t i, size_t j, size_t width,
                          size_t height, size_t pitch, const float* kernel,
-                         size_t kernel_size)
+                         size_t kernel_size, float init_acc_value, F f)
 {
     float* line = (float*)(out + i * pitch);
 
@@ -119,12 +120,24 @@ __device__ void convolve(char* out, char* in, size_t i, size_t j, size_t width,
                 && j + kX < width)
             {
                 float* current_line = (float*)(in + (i + kY) * pitch);
-                acc += current_line[j + kX] * kernel[kI * kernel_size + kJ];
+                acc =
+                    f(acc, current_line[j + kX], kernel[kI * kernel_size + kJ]);
             }
         }
     }
 
     line[j] = acc;
+}
+
+__device__ void convolve(char* out, char* in, size_t i, size_t j, size_t width,
+                         size_t height, size_t pitch, const float* kernel,
+                         size_t kernel_size)
+{
+    auto lambda = [](float acc, float mat_val, float k_val) {
+        return acc + mat_val * k_val;
+    };
+    convolve(out, in, i, j, width, height, pitch, kernel, kernel_size, 0,
+             lambda);
 }
 
 __device__ char* nth_buffer(char* buffers, size_t n, size_t pitch,
@@ -226,6 +239,22 @@ __global__ void threshold(char* buffer, size_t pitch, size_t width,
     line_buffer[x] = line_buffer[x] > threshold ? 1.0 : 0.0;
 }
 
+__global__ void dilate(char* out, char* in, size_t pitch, size_t width,
+                       size_t height)
+{
+    int x = blockDim.x * blockIdx.x + threadIdx.x;
+    int y = blockDim.y * blockIdx.y + threadIdx.y;
+
+    if (x >= width || y >= height)
+        return;
+
+    auto lambda = [](float acc, float mat_val, float k_val) {
+        return (k_val > 0.00001 && mat_val > acc) ? mat_val : acc;
+    };
+    convolve(out, in, y, x, width, height, pitch, ELLIPSE, ELLIPSE_DIM,
+             MAXFLOAT, lambda);
+}
+
 void harris(char* host_buffer, char* out_buffer, size_t width, size_t height,
             std::ptrdiff_t stride)
 {
@@ -249,7 +278,7 @@ void harris(char* host_buffer, char* out_buffer, size_t width, size_t height,
         abortError("Fail buffer allocation");
 
     rc = cudaMallocPitch(&harris_buffers, &pitch_harris_buffers,
-                         width * sizeof(float), 11 * height);
+                         width * sizeof(float), 12 * height);
     if (rc)
         abortError("Fail buffer allocation");
 
@@ -296,7 +325,22 @@ void harris(char* host_buffer, char* out_buffer, size_t width, size_t height,
 
     cudaDeviceSynchronize();
 
-    rc = cudaMemcpy2D(out_buffer, width * sizeof(float), harris_im,
+    char* harris_dil = harris_buffers + 11 * height * pitch_harris_buffers;
+
+    rc = cudaMemcpy2D(harris_dil, width * sizeof(float), harris_im,
+                      pitch_harris_buffers, width * sizeof(float), height,
+                      cudaMemcpyDeviceToDevice);
+    if (rc)
+        abortError("Unable to copy buffer back to memory");
+
+    dilate<<<dimGrid, dimBlock>>>(harris_dil, harris_im, pitch_buffer, width,
+                                  height);
+
+    cudaDeviceSynchronize();
+
+    char* result = harris_dil;
+
+    rc = cudaMemcpy2D(out_buffer, width * sizeof(float), result,
                       pitch_harris_buffers, width * sizeof(float), height,
                       cudaMemcpyDeviceToHost);
     if (rc)
