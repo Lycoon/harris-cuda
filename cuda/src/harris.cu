@@ -127,34 +127,42 @@ __global__ void gauss_derivatives(char* buffer, size_t pitch, size_t width,
     char* im_x = nth_buffer(buffers, 0, pitch, height);
     char* im_y = nth_buffer(buffers, 1, pitch, height);
 
-    char* im_xx = nth_buffer(buffers, 3, pitch, height);
-    char* im_xy = nth_buffer(buffers, 4, pitch, height);
-    char* im_yy = nth_buffer(buffers, 5, pitch, height);
-
     convolve(im_x, buffer, y, x, width, height, pitch, GAUSS_X,
              GAUSS_KERNEL_DIM);
     convolve(im_y, buffer, y, x, width, height, pitch, GAUSS_Y,
              GAUSS_KERNEL_DIM);
 
-    __syncthreads();
+    char* im_xx = nth_buffer(buffers, 2, pitch, height);
+    char* im_xy = nth_buffer(buffers, 3, pitch, height);
+    char* im_yy = nth_buffer(buffers, 4, pitch, height);
 
-    {
-        float* line_im_x = line(im_x, y, pitch);
-        float* line_im_y = line(im_y, y, pitch);
-        float* line_im_xx = line(im_xx, y, pitch);
-        float* line_im_xy = line(im_xy, y, pitch);
-        float* line_im_yy = line(im_yy, y, pitch);
+    float* line_im_x = line(im_x, y, pitch);
+    float* line_im_y = line(im_y, y, pitch);
+    float* line_im_xx = line(im_xx, y, pitch);
+    float* line_im_xy = line(im_xy, y, pitch);
+    float* line_im_yy = line(im_yy, y, pitch);
 
-        line_im_xx[x] = line_im_x[x] * line_im_x[x];
-        line_im_xy[x] = line_im_x[x] * line_im_y[x];
-        line_im_yy[x] = line_im_y[x] * line_im_y[x];
-    }
+    line_im_xx[x] = line_im_x[x] * line_im_x[x];
+    line_im_xy[x] = line_im_x[x] * line_im_y[x];
+    line_im_yy[x] = line_im_y[x] * line_im_y[x];
+}
 
-    char* W_xx = nth_buffer(buffers, 0, pitch, height);
-    char* W_xy = nth_buffer(buffers, 1, pitch, height);
-    char* W_yy = nth_buffer(buffers, 2, pitch, height);
+__global__ void harris_response(char* buffers, size_t pitch, size_t width,
+                                size_t height)
+{
+    int x = blockDim.x * blockIdx.x + threadIdx.x;
+    int y = blockDim.y * blockIdx.y + threadIdx.y;
 
-    __syncthreads();
+    if (x >= width || y >= height)
+        return;
+
+    char* im_xx = nth_buffer(buffers, 2, pitch, height);
+    char* im_xy = nth_buffer(buffers, 3, pitch, height);
+    char* im_yy = nth_buffer(buffers, 4, pitch, height);
+
+    char* W_xx = nth_buffer(buffers, 5, pitch, height);
+    char* W_xy = nth_buffer(buffers, 6, pitch, height);
+    char* W_yy = nth_buffer(buffers, 7, pitch, height);
 
     convolve(W_xx, im_xx, y, x, width, height, pitch, GAUSS_KERNEL,
              GAUSS_KERNEL_DIM);
@@ -163,27 +171,23 @@ __global__ void gauss_derivatives(char* buffer, size_t pitch, size_t width,
     convolve(W_yy, im_yy, y, x, width, height, pitch, GAUSS_KERNEL,
              GAUSS_KERNEL_DIM);
 
-    __syncthreads();
+    float* line_W_xx = line(W_xx, y, pitch);
+    float* line_W_xy = line(W_xy, y, pitch);
+    float* line_W_yy = line(W_yy, y, pitch);
 
-    {
-        float* line_W_xx = line(W_xx, y, pitch);
-        float* line_W_xy = line(W_xy, y, pitch);
-        float* line_W_yy = line(W_yy, y, pitch);
+    char* W_xy_2 = nth_buffer(buffers, 8, pitch, height);
+    float* line_W_xy_2 = line(W_xy_2, y, pitch);
+    line_W_xy_2[x] = line_W_xy[x] * line_W_xy[x];
 
-        // char* W_xy_2 = W_xy;
-        float* line_W_xy_2 = line_W_xy;
-        line_W_xy_2[x] = line_W_xy[x] * line_W_xy[x];
+    char* W_tr = nth_buffer(buffers, 9, pitch, height);
+    float* line_W_tr = line(W_tr, y, pitch);
+    line_W_tr[x] = line_W_xx[x] + line_W_yy[x] + 1;
 
-        char* W_tr = nth_buffer(buffers, 6, pitch, height);
-        float* line_W_tr = line(W_tr, y, pitch);
-        line_W_tr[x] = line_W_xx[x] + line_W_yy[x] + 1;
+    char* W_det = nth_buffer(buffers, 10, pitch, height);
+    float* line_W_det = line(W_det, y, pitch);
+    line_W_det[x] = line_W_xx[x] * line_W_yy[x] - line_W_xy_2[x];
 
-        // char* W_det = W_xx;
-        float* line_W_det = line_W_xx;
-        line_W_det[x] = line_W_xx[x] * line_W_yy[x] - line_W_xy_2[x];
-
-        line_W_det[x] = line_W_det[x] / line_W_tr[x];
-    }
+    line_W_det[x] = line_W_det[x] / line_W_tr[x];
 }
 
 void harris(char* host_buffer, char* out_buffer, size_t width, size_t height,
@@ -209,7 +213,7 @@ void harris(char* host_buffer, char* out_buffer, size_t width, size_t height,
         abortError("Fail buffer allocation");
 
     rc = cudaMallocPitch(&harris_buffers, &pitch_harris_buffers,
-                         width * sizeof(float), 10 * height);
+                         width * sizeof(float), 11 * height);
     if (rc)
         abortError("Fail buffer allocation");
 
@@ -227,13 +231,31 @@ void harris(char* host_buffer, char* out_buffer, size_t width, size_t height,
 
     img2float<<<dimGrid, dimBlock>>>(image, pitch_img, buffer, pitch_buffer,
                                      width, height);
+
+    rc = cudaDeviceSynchronize();
+    if (rc)
+        abortError("Device synchronize error");
+
+    // [im_x, im_y, im_xx, im_xy, im_yy]
     gauss_derivatives<<<dimGrid, dimBlock>>>(buffer, pitch_buffer, width,
                                              height, harris_buffers);
+
+    rc = cudaDeviceSynchronize();
+    if (rc)
+        abortError("Device synchronize error");
+
+    // [W_xx, W_xy, W_yy, W_xy_2, W_tr, W_det]
+    harris_response<<<dimGrid, dimBlock>>>(harris_buffers, pitch_buffer, width,
+                                           height);
+
+    rc = cudaDeviceSynchronize();
+    if (rc)
+        abortError("Device synchronize error");
 
     if (cudaPeekAtLastError())
         abortError("Computation Error");
 
-    char* im = harris_buffers + 0 * height * pitch_harris_buffers;
+    char* im = harris_buffers + 10 * height * pitch_harris_buffers;
     rc = cudaMemcpy2D(out_buffer, width * sizeof(float), im,
                       pitch_harris_buffers, width * sizeof(float), height,
                       cudaMemcpyDeviceToHost);
