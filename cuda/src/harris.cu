@@ -255,6 +255,27 @@ __global__ void dilate(char* out, char* in, size_t pitch, size_t width,
              MAXFLOAT, lambda);
 }
 
+__global__ void harris_response(char* harris_im, char* harris_dil, size_t pitch,
+                                size_t width, size_t height, float min,
+                                float max)
+{
+    int x = blockDim.x * blockIdx.x + threadIdx.x;
+    int y = blockDim.y * blockIdx.y + threadIdx.y;
+
+    if (x >= width || y >= height)
+        return;
+
+    float* line_harris_im = line(harris_im, y, pitch);
+    float* line_harris_dil = line(harris_dil, y, pitch);
+
+    int is_close = abs(line_harris_im[x] - line_harris_dil[x])
+        <= (1.0e-8 + 1.0e-5 * abs(line_harris_dil[x]));
+
+    line_harris_dil[x] =
+        line_harris_im[x] > (min + 0.5 * (max - min)) ? line_harris_im[x] : 0;
+    line_harris_dil[x] = line_harris_dil[x] * (float)is_close;
+}
+
 void harris(char* host_buffer, char* out_buffer, size_t width, size_t height,
             std::ptrdiff_t stride)
 {
@@ -297,19 +318,19 @@ void harris(char* host_buffer, char* out_buffer, size_t width, size_t height,
     img2float<<<dimGrid, dimBlock>>>(image, pitch_img, buffer, pitch_buffer,
                                      width, height);
 
-    cudaDeviceSynchronize();
+    if (cudaPeekAtLastError())
+        abortError("Computation Error");
 
     // [im_x, im_y, im_xx, im_xy, im_yy]
     gauss_derivatives<<<dimGrid, dimBlock>>>(buffer, pitch_buffer, width,
                                              height, harris_buffers);
 
-    cudaDeviceSynchronize();
+    if (cudaPeekAtLastError())
+        abortError("Computation Error");
 
     // [W_xx, W_xy, W_yy, W_xy_2, W_tr, W_det]
     harris_img<<<dimGrid, dimBlock>>>(harris_buffers, pitch_buffer, width,
                                       height);
-
-    cudaDeviceSynchronize();
 
     if (cudaPeekAtLastError())
         abortError("Computation Error");
@@ -318,12 +339,16 @@ void harris(char* host_buffer, char* out_buffer, size_t width, size_t height,
 
     thrust::device_vector<float> vec(
         (float*)harris_im, (float*)(harris_im + height * pitch_harris_buffers));
+
+    // TODO: use minmax
+    float harris_im_min = *thrust::min_element(vec.begin(), vec.end());
     float harris_im_max = *thrust::max_element(vec.begin(), vec.end());
 
-    threshold<<<dimGrid, dimBlock>>>(harris_im, pitch_buffer, width, height,
-                                     harris_im_max * 0.1);
+    // threshold<<<dimGrid, dimBlock>>>(harris_im, pitch_buffer, width, height,
+    //                                  harris_im_max * 0.1);
 
-    cudaDeviceSynchronize();
+    if (cudaPeekAtLastError())
+        abortError("Computation Error");
 
     char* harris_dil = harris_buffers + 11 * height * pitch_harris_buffers;
 
@@ -336,7 +361,17 @@ void harris(char* host_buffer, char* out_buffer, size_t width, size_t height,
     dilate<<<dimGrid, dimBlock>>>(harris_dil, harris_im, pitch_buffer, width,
                                   height);
 
-    cudaDeviceSynchronize();
+    if (cudaPeekAtLastError())
+        abortError("Computation Error");
+
+    harris_response<<<dimGrid, dimBlock>>>(harris_im, harris_dil, pitch_buffer,
+                                           width, height, harris_im_min,
+                                           harris_im_max);
+
+    std::cout << harris_im_min << std::endl;
+    std::cout << harris_im_max << std::endl;
+    std::cout << harris_im_min + 0.5 * (harris_im_max - harris_im_min)
+              << std::endl;
 
     char* result = harris_dil;
 
