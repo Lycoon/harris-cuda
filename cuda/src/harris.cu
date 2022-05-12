@@ -17,8 +17,8 @@
 
 #define abortError(msg) _abortError(msg, __FUNCTION__, __LINE__)
 
-__global__ void grayscale(char* buffer, size_t width, size_t height,
-                          size_t pitch)
+__global__ void grayscale_img(char* buffer, size_t width, size_t height,
+                              size_t pitch)
 {
     int x = blockDim.x * blockIdx.x + threadIdx.x;
     int y = blockDim.y * blockIdx.y + threadIdx.y;
@@ -60,7 +60,7 @@ void harris(char* host_buffer, size_t width, size_t height,
     dim3 dimBlock(bsize, bsize);
     dim3 dimGrid(w, h);
 
-    grayscale<<<dimGrid, dimBlock>>>(gray, width, height, pitch);
+    grayscale_img<<<dimGrid, dimBlock>>>(gray, width, height, pitch);
 
     if (cudaPeekAtLastError())
         abortError("Computation Error");
