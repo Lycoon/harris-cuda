@@ -76,13 +76,13 @@ __device__ const float GAUSS_KERNEL[] = {
     0.000102799,
 };
 
-__device__ void convolve(char* image, size_t i, size_t j, size_t width,
+__device__ void convolve(char* out, char* in, size_t i, size_t j, size_t width,
                          size_t height, size_t pitch, const float* kernel,
                          size_t kernel_size)
 {
     long k_size = static_cast<long>(kernel_size);
 
-    float* line = (float*)(image + i * pitch);
+    float* line = (float*)(out + i * pitch);
 
     float acc = 0;
     size_t kI = kernel_size - 1;
@@ -97,7 +97,7 @@ __device__ void convolve(char* image, size_t i, size_t j, size_t width,
             if (((int)i) + kY >= 0 && i + kY < height && ((int)j) + kX >= 0
                 && j + kX < width)
             {
-                float* current_line = (float*)(image + (i + kY) * pitch);
+                float* current_line = (float*)(in + (i + kY) * pitch);
                 acc += current_line[j + kX] * kernel[kI * kernel_size + kJ];
             }
         }
@@ -119,22 +119,12 @@ __global__ void gauss_derivatives(char* buffer, size_t pitch, size_t width,
     if (x >= width || y >= height)
         return;
 
-    float* line = (float*)(buffer + y * pitch);
-
     char* im_x = (buffers + IM_X * height * pitch_buffers);
     char* im_y = (buffers + IM_Y * height * pitch_buffers);
 
-    float* line_im_x = (float*)(im_x + y * pitch_buffers);
-    float* line_im_y = (float*)(im_y + y * pitch_buffers);
-
-    line_im_x[x] = line[x];
-    line_im_y[x] = line[x];
-
-    __syncthreads();
-
-    convolve(im_x, y, x, width, height, pitch_buffers, GAUSS_X,
+    convolve(im_x, buffer, y, x, width, height, pitch_buffers, GAUSS_X,
              GAUSS_KERNEL_DIM);
-    convolve(im_y, y, x, width, height, pitch_buffers, GAUSS_Y,
+    convolve(im_y, buffer, y, x, width, height, pitch_buffers, GAUSS_Y,
              GAUSS_KERNEL_DIM);
 }
 
