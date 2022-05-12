@@ -49,15 +49,6 @@ ImagePNG* ImagePNG::read(char* filename)
 
     image->row_pointers = row_pointers;
 
-    std::cout << (int)(*row_pointers)[image->width * 100 + 100 + 0] << " "
-              << (int)(*row_pointers)[image->width * 100 + 100 + 1] << " "
-              << (int)(*row_pointers)[image->width * 100 + 100 + 2] << " "
-              << std::endl
-              << (int)(*row_pointers)[image->width * 100 + 100 + 3] << " "
-              << (int)(*row_pointers)[image->width * 100 + 100 + 4] << " "
-              << (int)(*row_pointers)[image->width * 100 + 100 + 5] << " "
-              << std::endl;
-
     free(info_ptr);
     png_destroy_read_struct(&png_ptr, NULL, NULL);
     fclose(fp);
