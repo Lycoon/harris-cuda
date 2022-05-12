@@ -3,6 +3,8 @@
 #include <iostream>
 #include <memory>
 #include <spdlog/spdlog.h>
+#include <thrust/device_vector.h>
+#include <thrust/extrema.h>
 
 #include "include/harris.hh"
 
@@ -211,6 +213,19 @@ __global__ void harris_img(char* buffers, size_t pitch, size_t width,
     line_W_det[x] = line_W_det[x] / line_W_tr[x];
 }
 
+__global__ void threshold(char* buffer, size_t pitch, size_t width,
+                          size_t height, float threshold)
+{
+    int x = blockDim.x * blockIdx.x + threadIdx.x;
+    int y = blockDim.y * blockIdx.y + threadIdx.y;
+
+    if (x >= width || y >= height)
+        return;
+
+    float* line_buffer = line(buffer, y, pitch);
+    line_buffer[x] = line_buffer[x] > threshold ? 1.0 : 0.0;
+}
+
 void harris(char* host_buffer, char* out_buffer, size_t width, size_t height,
             std::ptrdiff_t stride)
 {
@@ -253,31 +268,35 @@ void harris(char* host_buffer, char* out_buffer, size_t width, size_t height,
     img2float<<<dimGrid, dimBlock>>>(image, pitch_img, buffer, pitch_buffer,
                                      width, height);
 
-    rc = cudaDeviceSynchronize();
-    if (rc)
-        abortError("Device synchronize error");
+    cudaDeviceSynchronize();
 
     // [im_x, im_y, im_xx, im_xy, im_yy]
     gauss_derivatives<<<dimGrid, dimBlock>>>(buffer, pitch_buffer, width,
                                              height, harris_buffers);
 
-    rc = cudaDeviceSynchronize();
-    if (rc)
-        abortError("Device synchronize error");
+    cudaDeviceSynchronize();
 
     // [W_xx, W_xy, W_yy, W_xy_2, W_tr, W_det]
     harris_img<<<dimGrid, dimBlock>>>(harris_buffers, pitch_buffer, width,
                                       height);
 
-    rc = cudaDeviceSynchronize();
-    if (rc)
-        abortError("Device synchronize error");
+    cudaDeviceSynchronize();
 
     if (cudaPeekAtLastError())
         abortError("Computation Error");
 
-    char* im = harris_buffers + 10 * height * pitch_harris_buffers;
-    rc = cudaMemcpy2D(out_buffer, width * sizeof(float), im,
+    char* harris_im = harris_buffers + 10 * height * pitch_harris_buffers;
+
+    thrust::device_vector<float> vec(
+        (float*)harris_im, (float*)(harris_im + height * pitch_harris_buffers));
+    float harris_im_max = *thrust::max_element(vec.begin(), vec.end());
+
+    threshold<<<dimGrid, dimBlock>>>(harris_im, pitch_buffer, width, height,
+                                     harris_im_max * 0.1);
+
+    cudaDeviceSynchronize();
+
+    rc = cudaMemcpy2D(out_buffer, width * sizeof(float), harris_im,
                       pitch_harris_buffers, width * sizeof(float), height,
                       cudaMemcpyDeviceToHost);
     if (rc)
