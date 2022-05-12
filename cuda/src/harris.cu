@@ -17,8 +17,8 @@
 
 #define abortError(msg) _abortError(msg, __FUNCTION__, __LINE__)
 
-__global__ void grayscale_img(char* buffer, size_t width, size_t height,
-                              size_t pitch)
+__global__ void img2float(char* buffer, size_t pitch, float* out,
+                          size_t pitch_out, size_t width, size_t height)
 {
     int x = blockDim.x * blockIdx.x + threadIdx.x;
     int y = blockDim.y * blockIdx.y + threadIdx.y;
@@ -27,13 +27,30 @@ __global__ void grayscale_img(char* buffer, size_t width, size_t height,
         return;
 
     rgb_png* line = (rgb_png*)(buffer + y * pitch);
+    float* out_line = out + y * pitch_out;
 
     float r = static_cast<float>(line[x].r) * 0.299;
     float g = static_cast<float>(line[x].g) * 0.587;
     float b = static_cast<float>(line[x].b) * 0.114;
 
-    png_byte gray = static_cast<uint8_t>(r + g + b);
-    line[x] = { gray, gray, gray };
+    out_line[x] = r + g + b;
+}
+
+__global__ void float2img(float* buffer, size_t pitch, char* out,
+                          size_t pitch_out, size_t width, size_t height)
+{
+    int x = blockDim.x * blockIdx.x + threadIdx.x;
+    int y = blockDim.y * blockIdx.y + threadIdx.y;
+
+    if (x >= width || y >= height)
+        return;
+
+    float* line = buffer + y * pitch;
+    rgb_png* out_line = (rgb_png*)(out + y * pitch_out);
+
+    png_byte gray = static_cast<png_byte>(line[x]);
+
+    out_line[x] = { gray, gray, gray };
 }
 
 void harris(char* host_buffer, size_t width, size_t height,
@@ -41,14 +58,21 @@ void harris(char* host_buffer, size_t width, size_t height,
 {
     cudaError_t rc = cudaSuccess;
 
-    char* gray;
-    size_t pitch;
+    char* image;
+    size_t pitch_img;
 
-    rc = cudaMallocPitch(&gray, &pitch, width * sizeof(rgb_png), height);
+    float* buffer;
+    size_t pitch_buffer;
+
+    rc = cudaMallocPitch(&image, &pitch_img, width * sizeof(rgb_png), height);
     if (rc)
         abortError("Fail buffer allocation");
 
-    rc = cudaMemcpy2D(gray, pitch, host_buffer, stride, stride, height,
+    rc = cudaMallocPitch(&buffer, &pitch_buffer, width * sizeof(float), height);
+    if (rc)
+        abortError("Fail buffer allocation");
+
+    rc = cudaMemcpy2D(image, pitch_img, host_buffer, stride, stride, height,
                       cudaMemcpyHostToDevice);
     if (rc)
         abortError("Unable to copy buffer from memory");
@@ -60,18 +84,21 @@ void harris(char* host_buffer, size_t width, size_t height,
     dim3 dimBlock(bsize, bsize);
     dim3 dimGrid(w, h);
 
-    grayscale_img<<<dimGrid, dimBlock>>>(gray, width, height, pitch);
+    img2float<<<dimGrid, dimBlock>>>(image, pitch_img, buffer, pitch_buffer,
+                                     width, height);
+    float2img<<<dimGrid, dimBlock>>>(buffer, pitch_buffer, image, pitch_img,
+                                     width, height);
 
     if (cudaPeekAtLastError())
         abortError("Computation Error");
 
-    rc = cudaMemcpy2D(host_buffer, stride, gray, pitch, width * sizeof(rgb_png),
-                      height, cudaMemcpyDeviceToHost);
+    rc = cudaMemcpy2D(host_buffer, stride, image, pitch_img,
+                      width * sizeof(rgb_png), height, cudaMemcpyDeviceToHost);
     if (rc)
         abortError("Unable to copy buffer back to memory");
 
     // Free
-    rc = cudaFree(gray);
+    rc = cudaFree(image);
     if (rc)
         abortError("Unable to free memory");
 }
