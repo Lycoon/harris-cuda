@@ -1,6 +1,7 @@
 #include <cstddef>
 #include <cstring>
 #include <iostream>
+#include <limits>
 #include <memory>
 
 #include "include/harris.hh"
@@ -41,6 +42,8 @@ int main(int argc, char** argv)
     // Create buffer (will need pitch)
     int stride = image->width * sizeof(rgb_png);
     auto buffer = std::make_unique<std::byte[]>(image->height * stride);
+    auto buffer_out = std::make_unique<std::byte[]>(image->height * image->width
+                                                    * sizeof(float));
 
     for (size_t i = 0; i < image->height; i++)
     {
@@ -48,12 +51,34 @@ int main(int argc, char** argv)
     }
 
     // harris
-    harris(reinterpret_cast<char*>(buffer.get()), image->width, image->height,
-           stride);
+    harris(reinterpret_cast<char*>(buffer.get()),
+           reinterpret_cast<char*>(buffer_out.get()), image->width,
+           image->height, stride);
 
-    for (size_t i = 0; i < image->height; i++)
+    float min = std::numeric_limits<float>::max();
+    float max = std::numeric_limits<float>::min();
+    for (size_t y = 0; y < image->height; y++)
     {
-        memcpy(image->row_pointers[i], buffer.get() + i * stride, stride);
+        for (size_t x = 0; x < image->width; x++)
+        {
+            float tmp = ((float*)buffer_out.get())[y * image->width + x];
+            min = std::min(min, tmp);
+            max = std::max(max, tmp);
+        }
+    }
+
+    // Write image data
+    for (size_t y = 0; y < image->height; y++)
+    {
+        for (size_t x = 0; x < image->width; x++)
+        {
+            float grey =
+                ((((float*)buffer_out.get())[y * image->width + x] - min)
+                 * 255.f)
+                / (max - min);
+            for (size_t k = 0; k < 3; k++)
+                image->row_pointers[y][x * 3 + k] = static_cast<png_byte>(grey);
+        }
     }
 
     write_png(image->row_pointers, image->width, image->height, stride,

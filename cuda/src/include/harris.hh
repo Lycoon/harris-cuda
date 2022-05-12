@@ -11,5 +11,5 @@ struct rgb_png
     png_byte b;
 };
 
-void harris(char* host_buffer, size_t width, size_t height,
+void harris(char* host_buffer, char* out_buffer, size_t width, size_t height,
             std::ptrdiff_t stride);
