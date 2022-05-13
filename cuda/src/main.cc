@@ -44,15 +44,18 @@ int main(int argc, char** argv)
     auto buffer = std::make_unique<std::byte[]>(image->height * stride);
     auto buffer_out = std::make_unique<std::byte[]>(image->height * image->width
                                                     * sizeof(float));
+    auto point_out = std::make_unique<std::byte[]>(2000 * sizeof(point));
 
     for (size_t i = 0; i < image->height; i++)
     {
         memcpy(buffer.get() + i * stride, image->row_pointers[i], stride);
     }
 
+    int nb_points = 0;
     // harris
     harris(reinterpret_cast<char*>(buffer.get()),
-           reinterpret_cast<char*>(buffer_out.get()), image->width,
+           reinterpret_cast<char*>(buffer_out.get()),
+           reinterpret_cast<point*>(point_out.get()), &nb_points, image->width,
            image->height, stride);
 
     float min = std::numeric_limits<float>::max();
@@ -83,6 +86,13 @@ int main(int argc, char** argv)
 
     write_png(image->row_pointers, image->width, image->height, stride,
               filename.c_str());
+
+    std::cout << "nb_points: " << nb_points << "\n";
+    for (size_t i = 0; i < nb_points; i++)
+    {
+        std::cout << "x: " << ((point*)point_out.get())[i].x
+                  << " | y: " << ((point*)point_out.get())[i].y << "\n";
+    }
 
     delete image;
 }

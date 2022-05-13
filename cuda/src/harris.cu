@@ -276,8 +276,31 @@ __global__ void harris_response(char* harris_im, char* harris_dil, size_t pitch,
     line_harris_dil[x] = line_harris_dil[x] * (float)is_close;
 }
 
-void harris(char* host_buffer, char* out_buffer, size_t width, size_t height,
-            std::ptrdiff_t stride)
+__global__ void best_points(char* harris_resp, point* points, char* values,
+                            size_t pitch, size_t width, size_t height,
+                            int* count)
+{
+    int current_count = 0;
+
+    int x = blockDim.x * blockIdx.x + threadIdx.x;
+    int y = blockDim.y * blockIdx.y + threadIdx.y;
+
+    if (x >= width || y >= height)
+        return;
+
+    float* line_harris_resp = line(harris_resp, y, pitch);
+    float* line_values = ((float*)values) + y * width;
+    point* line_points = points + (y * width);
+
+    line_points[x] = { y, x };
+    line_values[x] = line_harris_resp[x];
+
+    current_count = line_harris_resp[x] >= 1e-3;
+    atomicAdd(count, current_count);
+}
+
+void harris(char* host_buffer, char* out_buffer, point* out_point,
+            int* nb_points, size_t width, size_t height, std::ptrdiff_t stride)
 {
     cudaError_t rc = cudaSuccess;
 
@@ -290,6 +313,8 @@ void harris(char* host_buffer, char* out_buffer, size_t width, size_t height,
     char* harris_buffers;
     size_t pitch_harris_buffers;
 
+    point* points;
+
     rc = cudaMallocPitch(&image, &pitch_img, width * sizeof(rgb_png), height);
     if (rc)
         abortError("Fail buffer allocation");
@@ -300,6 +325,10 @@ void harris(char* host_buffer, char* out_buffer, size_t width, size_t height,
 
     rc = cudaMallocPitch(&harris_buffers, &pitch_harris_buffers,
                          width * sizeof(float), 12 * height);
+    if (rc)
+        abortError("Fail buffer allocation");
+
+    rc = cudaMalloc(&points, height * width * sizeof(point));
     if (rc)
         abortError("Fail buffer allocation");
 
@@ -368,16 +397,40 @@ void harris(char* host_buffer, char* out_buffer, size_t width, size_t height,
                                            width, height, harris_im_min,
                                            harris_im_max);
 
-    std::cout << harris_im_min << std::endl;
-    std::cout << harris_im_max << std::endl;
-    std::cout << harris_im_min + 0.5 * (harris_im_max - harris_im_min)
-              << std::endl;
+    char* harris_resp = harris_dil;
+
+    int* count;
+    rc = cudaMalloc(&count, 1 * sizeof(int));
+    if (rc)
+        abortError("Fail buffer allocation");
+
+    rc = cudaMemset(count, 0, 1 * sizeof(int));
+    if (rc)
+        abortError("Fail buffer memset");
+
+    best_points<<<dimGrid, dimBlock>>>(harris_resp, points, harris_buffers,
+                                       pitch_buffer, width, height, count);
+
+    thrust::sort_by_key(
+        thrust::device, (float*)harris_buffers,
+        (float*)(harris_buffers + height * width * sizeof(float)), points);
 
     char* result = harris_dil;
 
     rc = cudaMemcpy2D(out_buffer, width * sizeof(float), result,
                       pitch_harris_buffers, width * sizeof(float), height,
                       cudaMemcpyDeviceToHost);
+    if (rc)
+        abortError("Unable to copy buffer back to memory");
+
+    rc = cudaMemcpy(nb_points, count, 1 * sizeof(int), cudaMemcpyDeviceToHost);
+    if (rc)
+        abortError("Unable to copy buffer back to memory");
+
+    *nb_points = *nb_points > 2000 ? 2000 : *nb_points;
+    rc = cudaMemcpy(out_point, points + width * height - *nb_points,
+                    *nb_points * sizeof(point), cudaMemcpyDeviceToHost);
+
     if (rc)
         abortError("Unable to copy buffer back to memory");
 

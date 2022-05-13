@@ -11,5 +11,11 @@ struct rgb_png
     png_byte b;
 };
 
-void harris(char* host_buffer, char* out_buffer, size_t width, size_t height,
-            std::ptrdiff_t stride);
+struct point
+{
+    int y;
+    int x;
+};
+
+void harris(char* host_buffer, char* out_buffer, point* out_point,
+            int* nb_points, size_t width, size_t height, std::ptrdiff_t stride);
