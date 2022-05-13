@@ -36,6 +36,12 @@ ImagePNG* ImagePNG::read(char* filename)
     ImagePNG* image = new ImagePNG();
 
     FILE* fp = fopen(filename, "rb");
+    if (!fp)
+    {
+        std::cerr << filename << " not found" << std::endl;
+        exit(3);
+    }
+
     auto png_ptr =
         png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
     auto info_ptr = png_create_info_struct(png_ptr);

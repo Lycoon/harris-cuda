@@ -99,10 +99,65 @@ __device__ const float ELLIPSE[] = {
     1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0
 };
 
-template <class F>
-__device__ void convolve(char* out, char* in, size_t i, size_t j, size_t width,
-                         size_t height, size_t pitch, const float* kernel,
-                         size_t kernel_size, float init_acc_value, F f)
+#define CONVOLVE(out, in, i, j, width, height, pitch, kernel, kernel_size)     \
+    {                                                                          \
+        float* line = (float*)(out + i * pitch);                               \
+                                                                               \
+        float acc = 0;                                                         \
+        size_t kI = kernel_size - 1;                                           \
+                                                                               \
+        int maxY = ((int)kernel_size) / 2 + kernel_size % 2;                   \
+        for (int kY = -((int)kernel_size) / 2; kY < maxY; kY++, kI--)          \
+        {                                                                      \
+            size_t kJ = kernel_size - 1;                                       \
+            int maxX = ((int)kernel_size) / 2 + kernel_size % 2;               \
+            for (int kX = -((int)kernel_size) / 2; kX < maxX; kX++, kJ--)      \
+            {                                                                  \
+                if (((int)i) + kY >= 0 && i + kY < height                      \
+                    && ((int)j) + kX >= 0 && j + kX < width)                   \
+                {                                                              \
+                    float* current_line = (float*)(in + (i + kY) * pitch);     \
+                    acc +=                                                     \
+                        current_line[j + kX] * kernel[kI * kernel_size + kJ];  \
+                }                                                              \
+            }                                                                  \
+        }                                                                      \
+                                                                               \
+        line[j] = acc;                                                         \
+    }
+
+#define CONVOLVE_DILATE(out, in, i, j, width, height, pitch, kernel,           \
+                        kernel_size)                                           \
+    {                                                                          \
+        float* line = (float*)(out + i * pitch);                               \
+                                                                               \
+        float acc = 0;                                                         \
+        size_t kI = kernel_size - 1;                                           \
+                                                                               \
+        int maxY = ((int)kernel_size) / 2 + kernel_size % 2;                   \
+        for (int kY = -((int)kernel_size) / 2; kY < maxY; kY++, kI--)          \
+        {                                                                      \
+            size_t kJ = kernel_size - 1;                                       \
+            int maxX = ((int)kernel_size) / 2 + kernel_size % 2;               \
+            for (int kX = -((int)kernel_size) / 2; kX < maxX; kX++, kJ--)      \
+            {                                                                  \
+                if (((int)i) + kY >= 0 && i + kY < height                      \
+                    && ((int)j) + kX >= 0 && j + kX < width)                   \
+                {                                                              \
+                    float* current_line = (float*)(in + (i + kY) * pitch);     \
+                    if (kernel[kI * kernel_size + kJ] > 0.00001                \
+                        && current_line[j + kX] > acc)                         \
+                        acc = current_line[j + kX];                            \
+                }                                                              \
+            }                                                                  \
+        }                                                                      \
+                                                                               \
+        line[j] = acc;                                                         \
+    }
+
+__device__ void convolve_dilate(char* out, char* in, size_t i, size_t j,
+                                size_t width, size_t height, size_t pitch,
+                                const float* kernel, size_t kernel_size)
 {
     float* line = (float*)(out + i * pitch);
 
@@ -120,24 +175,14 @@ __device__ void convolve(char* out, char* in, size_t i, size_t j, size_t width,
                 && j + kX < width)
             {
                 float* current_line = (float*)(in + (i + kY) * pitch);
-                acc =
-                    f(acc, current_line[j + kX], kernel[kI * kernel_size + kJ]);
+                if (kernel[kI * kernel_size + kJ] > 0.00001
+                    && current_line[j + kX] > acc)
+                    acc = current_line[j + kX];
             }
         }
     }
 
     line[j] = acc;
-}
-
-__device__ void convolve(char* out, char* in, size_t i, size_t j, size_t width,
-                         size_t height, size_t pitch, const float* kernel,
-                         size_t kernel_size)
-{
-    auto lambda = [](float acc, float mat_val, float k_val) {
-        return acc + mat_val * k_val;
-    };
-    convolve(out, in, i, j, width, height, pitch, kernel, kernel_size, 0,
-             lambda);
 }
 
 __device__ char* nth_buffer(char* buffers, size_t n, size_t pitch,
@@ -163,9 +208,9 @@ __global__ void gauss_derivatives(char* buffer, size_t pitch, size_t width,
     char* im_x = nth_buffer(buffers, 0, pitch, height);
     char* im_y = nth_buffer(buffers, 1, pitch, height);
 
-    convolve(im_x, buffer, y, x, width, height, pitch, GAUSS_X,
+    CONVOLVE(im_x, buffer, y, x, width, height, pitch, GAUSS_X,
              GAUSS_KERNEL_DIM);
-    convolve(im_y, buffer, y, x, width, height, pitch, GAUSS_Y,
+    CONVOLVE(im_y, buffer, y, x, width, height, pitch, GAUSS_Y,
              GAUSS_KERNEL_DIM);
 
     char* im_xx = nth_buffer(buffers, 2, pitch, height);
@@ -200,11 +245,11 @@ __global__ void harris_img(char* buffers, size_t pitch, size_t width,
     char* W_xy = nth_buffer(buffers, 6, pitch, height);
     char* W_yy = nth_buffer(buffers, 7, pitch, height);
 
-    convolve(W_xx, im_xx, y, x, width, height, pitch, GAUSS_KERNEL,
+    CONVOLVE(W_xx, im_xx, y, x, width, height, pitch, GAUSS_KERNEL,
              GAUSS_KERNEL_DIM);
-    convolve(W_xy, im_xy, y, x, width, height, pitch, GAUSS_KERNEL,
+    CONVOLVE(W_xy, im_xy, y, x, width, height, pitch, GAUSS_KERNEL,
              GAUSS_KERNEL_DIM);
-    convolve(W_yy, im_yy, y, x, width, height, pitch, GAUSS_KERNEL,
+    CONVOLVE(W_yy, im_yy, y, x, width, height, pitch, GAUSS_KERNEL,
              GAUSS_KERNEL_DIM);
 
     float* line_W_xx = line(W_xx, y, pitch);
@@ -248,11 +293,7 @@ __global__ void dilate(char* out, char* in, size_t pitch, size_t width,
     if (x >= width || y >= height)
         return;
 
-    auto lambda = [](float acc, float mat_val, float k_val) {
-        return (k_val > 0.00001 && mat_val > acc) ? mat_val : acc;
-    };
-    convolve(out, in, y, x, width, height, pitch, ELLIPSE, ELLIPSE_DIM,
-             MAXFLOAT, lambda);
+    CONVOLVE_DILATE(out, in, y, x, width, height, pitch, ELLIPSE, ELLIPSE_DIM);
 }
 
 __global__ void harris_response(char* harris_im, char* harris_dil, size_t pitch,
