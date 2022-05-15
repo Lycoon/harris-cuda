@@ -161,9 +161,13 @@ __device__ const uint16_t ELLIPSE_POINTS[] = {
     (19 << 8) | 14
 };
 
+#define NTH_BUFFER(buffers, n, pitch, height) (buffers + n * height * pitch)
+
+#define LINE(buf, n, pitch) ((float*)(buf + n * pitch))
+
 #define CONVOLVE(out, in, i, j, width, height, pitch, kernel, kernel_size)     \
     {                                                                          \
-        float* line = (float*)(out + i * pitch);                               \
+        float* line = LINE(out, i, pitch);                                     \
                                                                                \
         float acc = 0;                                                         \
         size_t kI = kernel_size - 1;                                           \
@@ -191,7 +195,7 @@ __device__ const uint16_t ELLIPSE_POINTS[] = {
 #define CONVOLVE_DILATE(out, in, i, j, width, height, pitch)                   \
     {                                                                          \
         float acc = 0;                                                         \
-        float* line = (float*)(out + i * pitch);                               \
+        float* line = LINE(out, i, pitch);                                     \
                                                                                \
         int offSet = 10;                                                       \
         for (uint16_t p : ELLIPSE_POINTS)                                      \
@@ -208,17 +212,6 @@ __device__ const uint16_t ELLIPSE_POINTS[] = {
         line[j] = acc;                                                         \
     }
 
-__device__ char* nth_buffer(char* buffers, size_t n, size_t pitch,
-                            size_t height)
-{
-    return buffers + n * height * pitch;
-}
-
-__device__ float* line(char* buf, size_t n, size_t pitch)
-{
-    return (float*)(buf + n * pitch);
-}
-
 __global__ void gauss_derivatives(char* buffer, size_t pitch, size_t width,
                                   size_t height, char* buffers)
 {
@@ -228,23 +221,23 @@ __global__ void gauss_derivatives(char* buffer, size_t pitch, size_t width,
     if (x >= width || y >= height)
         return;
 
-    char* im_x = nth_buffer(buffers, 0, pitch, height);
-    char* im_y = nth_buffer(buffers, 1, pitch, height);
+    char* im_x = NTH_BUFFER(buffers, 0, pitch, height);
+    char* im_y = NTH_BUFFER(buffers, 1, pitch, height);
 
     CONVOLVE(im_x, buffer, y, x, width, height, pitch, GAUSS_X,
              GAUSS_KERNEL_DIM);
     CONVOLVE(im_y, buffer, y, x, width, height, pitch, GAUSS_Y,
              GAUSS_KERNEL_DIM);
 
-    char* im_xx = nth_buffer(buffers, 2, pitch, height);
-    char* im_xy = nth_buffer(buffers, 3, pitch, height);
-    char* im_yy = nth_buffer(buffers, 4, pitch, height);
+    char* im_xx = NTH_BUFFER(buffers, 2, pitch, height);
+    char* im_xy = NTH_BUFFER(buffers, 3, pitch, height);
+    char* im_yy = NTH_BUFFER(buffers, 4, pitch, height);
 
-    float* line_im_x = line(im_x, y, pitch);
-    float* line_im_y = line(im_y, y, pitch);
-    float* line_im_xx = line(im_xx, y, pitch);
-    float* line_im_xy = line(im_xy, y, pitch);
-    float* line_im_yy = line(im_yy, y, pitch);
+    float* line_im_x = LINE(im_x, y, pitch);
+    float* line_im_y = LINE(im_y, y, pitch);
+    float* line_im_xx = LINE(im_xx, y, pitch);
+    float* line_im_xy = LINE(im_xy, y, pitch);
+    float* line_im_yy = LINE(im_yy, y, pitch);
 
     line_im_xx[x] = line_im_x[x] * line_im_x[x];
     line_im_xy[x] = line_im_x[x] * line_im_y[x];
@@ -260,13 +253,13 @@ __global__ void harris_img(char* buffers, size_t pitch, size_t width,
     if (x >= width || y >= height)
         return;
 
-    char* im_xx = nth_buffer(buffers, 2, pitch, height);
-    char* im_xy = nth_buffer(buffers, 3, pitch, height);
-    char* im_yy = nth_buffer(buffers, 4, pitch, height);
+    char* im_xx = NTH_BUFFER(buffers, 2, pitch, height);
+    char* im_xy = NTH_BUFFER(buffers, 3, pitch, height);
+    char* im_yy = NTH_BUFFER(buffers, 4, pitch, height);
 
-    char* W_xx = nth_buffer(buffers, 5, pitch, height);
-    char* W_xy = nth_buffer(buffers, 6, pitch, height);
-    char* W_yy = nth_buffer(buffers, 7, pitch, height);
+    char* W_xx = NTH_BUFFER(buffers, 5, pitch, height);
+    char* W_xy = NTH_BUFFER(buffers, 6, pitch, height);
+    char* W_yy = NTH_BUFFER(buffers, 7, pitch, height);
 
     CONVOLVE(W_xx, im_xx, y, x, width, height, pitch, GAUSS_KERNEL,
              GAUSS_KERNEL_DIM);
@@ -275,20 +268,20 @@ __global__ void harris_img(char* buffers, size_t pitch, size_t width,
     CONVOLVE(W_yy, im_yy, y, x, width, height, pitch, GAUSS_KERNEL,
              GAUSS_KERNEL_DIM);
 
-    float* line_W_xx = line(W_xx, y, pitch);
-    float* line_W_xy = line(W_xy, y, pitch);
-    float* line_W_yy = line(W_yy, y, pitch);
+    float* line_W_xx = LINE(W_xx, y, pitch);
+    float* line_W_xy = LINE(W_xy, y, pitch);
+    float* line_W_yy = LINE(W_yy, y, pitch);
 
-    char* W_xy_2 = nth_buffer(buffers, 8, pitch, height);
-    float* line_W_xy_2 = line(W_xy_2, y, pitch);
+    char* W_xy_2 = NTH_BUFFER(buffers, 8, pitch, height);
+    float* line_W_xy_2 = LINE(W_xy_2, y, pitch);
     line_W_xy_2[x] = line_W_xy[x] * line_W_xy[x];
 
-    char* W_tr = nth_buffer(buffers, 9, pitch, height);
-    float* line_W_tr = line(W_tr, y, pitch);
+    char* W_tr = NTH_BUFFER(buffers, 9, pitch, height);
+    float* line_W_tr = LINE(W_tr, y, pitch);
     line_W_tr[x] = line_W_xx[x] + line_W_yy[x] + 1;
 
-    char* W_det = nth_buffer(buffers, 10, pitch, height);
-    float* line_W_det = line(W_det, y, pitch);
+    char* W_det = NTH_BUFFER(buffers, 10, pitch, height);
+    float* line_W_det = LINE(W_det, y, pitch);
     line_W_det[x] = line_W_xx[x] * line_W_yy[x] - line_W_xy_2[x];
 
     line_W_det[x] = line_W_det[x] / line_W_tr[x];
@@ -303,7 +296,7 @@ __global__ void threshold(char* buffer, size_t pitch, size_t width,
     if (x >= width || y >= height)
         return;
 
-    float* line_buffer = line(buffer, y, pitch);
+    float* line_buffer = LINE(buffer, y, pitch);
     line_buffer[x] = line_buffer[x] > threshold ? 1.0 : 0.0;
 }
 
@@ -329,8 +322,8 @@ __global__ void harris_response(char* harris_im, char* harris_dil, size_t pitch,
     if (x >= width || y >= height)
         return;
 
-    float* line_harris_im = line(harris_im, y, pitch);
-    float* line_harris_dil = line(harris_dil, y, pitch);
+    float* line_harris_im = LINE(harris_im, y, pitch);
+    float* line_harris_dil = LINE(harris_dil, y, pitch);
 
     int is_close = abs(line_harris_im[x] - line_harris_dil[x])
         <= (1.0e-8 + 1.0e-5 * abs(line_harris_dil[x]));
@@ -352,7 +345,7 @@ __global__ void best_points(char* harris_resp, point* points, char* values,
     if (x >= width || y >= height)
         return;
 
-    float* line_harris_resp = line(harris_resp, y, pitch);
+    float* line_harris_resp = LINE(harris_resp, y, pitch);
     float* line_values = ((float*)values) + y * width;
     point* line_points = points + (y * width);
 
@@ -428,7 +421,8 @@ void harris(char* host_buffer, char* out_buffer, point* out_point,
     if (cudaPeekAtLastError())
         abortError("Computation Error");
 
-    char* harris_im = harris_buffers + 10 * height * pitch_harris_buffers;
+    char* harris_im =
+        NTH_BUFFER(harris_buffers, 10, pitch_harris_buffers, height);
 
     thrust::device_vector<float> vec(
         (float*)harris_im, (float*)(harris_im + height * pitch_harris_buffers));
@@ -443,7 +437,8 @@ void harris(char* host_buffer, char* out_buffer, point* out_point,
     if (cudaPeekAtLastError())
         abortError("Computation Error");
 
-    char* harris_dil = harris_buffers + 11 * height * pitch_harris_buffers;
+    char* harris_dil =
+        NTH_BUFFER(harris_buffers, 11, pitch_harris_buffers, height);
 
     rc = cudaMemcpy2D(harris_dil, width * sizeof(float), harris_im,
                       pitch_harris_buffers, width * sizeof(float), height,
