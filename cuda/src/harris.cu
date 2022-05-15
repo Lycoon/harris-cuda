@@ -290,9 +290,9 @@ __global__ void harris_img(char* buffers, size_t pitch, size_t width,
     char* im_xy = NTH_BUFFER(buffers, 4, pitch, height + (2 * padding));
     char* im_yy = NTH_BUFFER(buffers, 5, pitch, height + (2 * padding));
 
-    char* W_xx = NTH_BUFFER(buffers, 6, pitch, height + (2 * padding));
-    char* W_xy = NTH_BUFFER(buffers, 7, pitch, height + (2 * padding));
-    char* W_yy = NTH_BUFFER(buffers, 8, pitch, height + (2 * padding));
+    char* W_xx = NTH_BUFFER(buffers, 0, pitch, height + (2 * padding));
+    char* W_xy = NTH_BUFFER(buffers, 1, pitch, height + (2 * padding));
+    char* W_yy = NTH_BUFFER(buffers, 2, pitch, height + (2 * padding));
 
     CONVOLVE(W_xx, im_xx, y, x, width, height, pitch, GAUSS_KERNEL,
              GAUSS_KERNEL_DIM);
@@ -305,15 +305,15 @@ __global__ void harris_img(char* buffers, size_t pitch, size_t width,
     float* line_W_xy = LINE(W_xy, y, pitch);
     float* line_W_yy = LINE(W_yy, y, pitch);
 
-    char* W_xy_2 = NTH_BUFFER(buffers, 9, pitch, height + (2 * padding));
+    char* W_xy_2 = NTH_BUFFER(buffers, 6, pitch, height + (2 * padding));
     float* line_W_xy_2 = LINE(W_xy_2, y, pitch);
     line_W_xy_2[x] = line_W_xy[x] * line_W_xy[x];
 
-    char* W_tr = NTH_BUFFER(buffers, 10, pitch, height + (2 * padding));
+    char* W_tr = NTH_BUFFER(buffers, 7, pitch, height + (2 * padding));
     float* line_W_tr = LINE(W_tr, y, pitch);
     line_W_tr[x] = line_W_xx[x] + line_W_yy[x] + 1;
 
-    char* W_det = NTH_BUFFER(buffers, 11, pitch, height + (2 * padding));
+    char* W_det = NTH_BUFFER(buffers, 8, pitch, height + (2 * padding));
     float* line_W_det = LINE(W_det, y, pitch);
     line_W_det[x] = line_W_xx[x] * line_W_yy[x] - line_W_xy_2[x];
 
@@ -429,7 +429,7 @@ void harris(char* host_buffer, char* out_buffer, point* out_point,
     if (rc)
         abortError("Fail buffer allocation");
 
-    const size_t NB_BUFFERS = 13;
+    const size_t NB_BUFFERS = 9;
 
     rc = cudaMallocPitch(&padded_buffers, &pitch_padded_buffers,
                          padded_width * sizeof(float),
@@ -489,7 +489,7 @@ void harris(char* host_buffer, char* out_buffer, point* out_point,
         abortError("Computation Error");
 
     char* harris_im =
-        NTH_BUFFER(padded_buffers, 11, pitch_padded_buffers, padded_height);
+        NTH_BUFFER(padded_buffers, 8, pitch_padded_buffers, padded_height);
 
     thrust::device_vector<float> vec(
         (float*)harris_im,
@@ -503,7 +503,7 @@ void harris(char* host_buffer, char* out_buffer, point* out_point,
         abortError("Computation Error");
 
     char* harris_dil =
-        NTH_BUFFER(padded_buffers, 12, pitch_padded_buffers, padded_height);
+        NTH_BUFFER(padded_buffers, 1, pitch_padded_buffers, padded_height);
 
     rc = cudaMemcpy2D(harris_dil, pitch_padded_buffers, harris_im,
                       pitch_padded_buffers, padded_width * sizeof(float),
