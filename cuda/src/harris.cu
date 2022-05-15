@@ -19,6 +19,11 @@
 
 #define abortError(msg) _abortError(msg, __FUNCTION__, __LINE__)
 
+#define LINE(buf, n, pitch) ((float*)(buf + (n) * (pitch)))
+
+#define NTH_BUFFER(buffers, n, pitch, padded_height)                           \
+    (buffers + (n) * (padded_height) * (pitch))
+
 __global__ void img2float(char* buffer, size_t pitch, char* out,
                           size_t pitch_out, size_t width, size_t height)
 {
@@ -36,6 +41,38 @@ __global__ void img2float(char* buffer, size_t pitch, char* out,
     float b = static_cast<float>(line[x].b) * 0.114;
 
     out_line[x] = r + g + b;
+}
+
+__global__ void pad_image(char* in, size_t pitch_in, char* out,
+                          size_t pitch_out, size_t width, size_t height,
+                          size_t padding)
+{
+    int x = blockDim.x * blockIdx.x + threadIdx.x;
+    int y = blockDim.y * blockIdx.y + threadIdx.y;
+
+    if (x >= width || y >= height)
+        return;
+
+    float* line_in = LINE(in, y, pitch_in);
+    float* line_out = LINE(out, y + padding, pitch_out);
+
+    line_out[x + padding] = line_in[x];
+}
+
+__global__ void unpad_image(char* in, size_t pitch_in, char* out,
+                            size_t pitch_out, size_t width, size_t height,
+                            size_t padding)
+{
+    int x = blockDim.x * blockIdx.x + threadIdx.x;
+    int y = blockDim.y * blockIdx.y + threadIdx.y;
+
+    if (x >= width || y >= height)
+        return;
+
+    float* line_in = LINE(in, y + padding, pitch_in);
+    float* line_out = LINE(out, y, pitch_out);
+
+    line_out[x] = line_in[x + padding];
 }
 
 const size_t GAUSS_KERNEL_DIM = 7;
@@ -75,6 +112,8 @@ __device__ const float GAUSS_KERNEL[] = {
     0.000102799, 0.00131756, 0.00608749, 0.010139,  0.00608749, 0.00131756,
     0.000102799,
 };
+
+const size_t ELLIPSE_DIM = 20;
 
 __device__ const uint16_t ELLIPSE_POINTS[] = {
     (0 << 8) | 10,  (1 << 8) | 6,   (1 << 8) | 7,   (1 << 8) | 8,
@@ -161,10 +200,6 @@ __device__ const uint16_t ELLIPSE_POINTS[] = {
     (19 << 8) | 14
 };
 
-#define NTH_BUFFER(buffers, n, pitch, height) (buffers + n * height * pitch)
-
-#define LINE(buf, n, pitch) ((float*)(buf + n * pitch))
-
 #define CONVOLVE(out, in, i, j, width, height, pitch, kernel, kernel_size)     \
     {                                                                          \
         float* line = LINE(out, i, pitch);                                     \
@@ -179,13 +214,8 @@ __device__ const uint16_t ELLIPSE_POINTS[] = {
             int maxX = ((int)kernel_size) / 2 + kernel_size % 2;               \
             for (int kX = -((int)kernel_size) / 2; kX < maxX; kX++, kJ--)      \
             {                                                                  \
-                if (((int)i) + kY >= 0 && i + kY < height                      \
-                    && ((int)j) + kX >= 0 && j + kX < width)                   \
-                {                                                              \
-                    float* current_line = (float*)(in + (i + kY) * pitch);     \
-                    acc +=                                                     \
-                        current_line[j + kX] * kernel[kI * kernel_size + kJ];  \
-                }                                                              \
+                float* current_line = (float*)(in + (i + kY) * pitch);         \
+                acc += current_line[j + kX] * kernel[kI * kernel_size + kJ];   \
             }                                                                  \
         }                                                                      \
                                                                                \
@@ -204,16 +234,14 @@ __device__ const uint16_t ELLIPSE_POINTS[] = {
             int kY = (int)((p >> 8) & 0xFF) - offSet;                          \
                                                                                \
             float* current_line = (float*)(in + (i + kY) * pitch);             \
-            if (((int)i) + kY >= 0 && i + kY < height && ((int)j) + kX >= 0    \
-                && j + kX < width)                                             \
-                acc = max(current_line[j + kX], acc);                          \
+            acc = max(current_line[j + kX], acc);                              \
         }                                                                      \
                                                                                \
         line[j] = acc;                                                         \
     }
 
-__global__ void gauss_derivatives(char* buffer, size_t pitch, size_t width,
-                                  size_t height, char* buffers)
+__global__ void gauss_derivatives(char* buffers, size_t pitch, size_t width,
+                                  size_t height, size_t padding)
 {
     int x = blockDim.x * blockIdx.x + threadIdx.x;
     int y = blockDim.y * blockIdx.y + threadIdx.y;
@@ -221,17 +249,19 @@ __global__ void gauss_derivatives(char* buffer, size_t pitch, size_t width,
     if (x >= width || y >= height)
         return;
 
-    char* im_x = NTH_BUFFER(buffers, 0, pitch, height);
-    char* im_y = NTH_BUFFER(buffers, 1, pitch, height);
+    x += padding;
+    y += padding;
 
-    CONVOLVE(im_x, buffer, y, x, width, height, pitch, GAUSS_X,
-             GAUSS_KERNEL_DIM);
-    CONVOLVE(im_y, buffer, y, x, width, height, pitch, GAUSS_Y,
-             GAUSS_KERNEL_DIM);
+    char* im = NTH_BUFFER(buffers, 0, pitch, height + (2 * padding));
+    char* im_x = NTH_BUFFER(buffers, 1, pitch, height + (2 * padding));
+    char* im_y = NTH_BUFFER(buffers, 2, pitch, height + (2 * padding));
 
-    char* im_xx = NTH_BUFFER(buffers, 2, pitch, height);
-    char* im_xy = NTH_BUFFER(buffers, 3, pitch, height);
-    char* im_yy = NTH_BUFFER(buffers, 4, pitch, height);
+    CONVOLVE(im_x, im, y, x, width, height, pitch, GAUSS_X, GAUSS_KERNEL_DIM);
+    CONVOLVE(im_y, im, y, x, width, height, pitch, GAUSS_Y, GAUSS_KERNEL_DIM);
+
+    char* im_xx = NTH_BUFFER(buffers, 3, pitch, height + (2 * padding));
+    char* im_xy = NTH_BUFFER(buffers, 4, pitch, height + (2 * padding));
+    char* im_yy = NTH_BUFFER(buffers, 5, pitch, height + (2 * padding));
 
     float* line_im_x = LINE(im_x, y, pitch);
     float* line_im_y = LINE(im_y, y, pitch);
@@ -245,7 +275,7 @@ __global__ void gauss_derivatives(char* buffer, size_t pitch, size_t width,
 }
 
 __global__ void harris_img(char* buffers, size_t pitch, size_t width,
-                           size_t height)
+                           size_t height, size_t padding)
 {
     int x = blockDim.x * blockIdx.x + threadIdx.x;
     int y = blockDim.y * blockIdx.y + threadIdx.y;
@@ -253,13 +283,16 @@ __global__ void harris_img(char* buffers, size_t pitch, size_t width,
     if (x >= width || y >= height)
         return;
 
-    char* im_xx = NTH_BUFFER(buffers, 2, pitch, height);
-    char* im_xy = NTH_BUFFER(buffers, 3, pitch, height);
-    char* im_yy = NTH_BUFFER(buffers, 4, pitch, height);
+    x += padding;
+    y += padding;
 
-    char* W_xx = NTH_BUFFER(buffers, 5, pitch, height);
-    char* W_xy = NTH_BUFFER(buffers, 6, pitch, height);
-    char* W_yy = NTH_BUFFER(buffers, 7, pitch, height);
+    char* im_xx = NTH_BUFFER(buffers, 3, pitch, height + (2 * padding));
+    char* im_xy = NTH_BUFFER(buffers, 4, pitch, height + (2 * padding));
+    char* im_yy = NTH_BUFFER(buffers, 5, pitch, height + (2 * padding));
+
+    char* W_xx = NTH_BUFFER(buffers, 6, pitch, height + (2 * padding));
+    char* W_xy = NTH_BUFFER(buffers, 7, pitch, height + (2 * padding));
+    char* W_yy = NTH_BUFFER(buffers, 8, pitch, height + (2 * padding));
 
     CONVOLVE(W_xx, im_xx, y, x, width, height, pitch, GAUSS_KERNEL,
              GAUSS_KERNEL_DIM);
@@ -272,15 +305,15 @@ __global__ void harris_img(char* buffers, size_t pitch, size_t width,
     float* line_W_xy = LINE(W_xy, y, pitch);
     float* line_W_yy = LINE(W_yy, y, pitch);
 
-    char* W_xy_2 = NTH_BUFFER(buffers, 8, pitch, height);
+    char* W_xy_2 = NTH_BUFFER(buffers, 9, pitch, height + (2 * padding));
     float* line_W_xy_2 = LINE(W_xy_2, y, pitch);
     line_W_xy_2[x] = line_W_xy[x] * line_W_xy[x];
 
-    char* W_tr = NTH_BUFFER(buffers, 9, pitch, height);
+    char* W_tr = NTH_BUFFER(buffers, 10, pitch, height + (2 * padding));
     float* line_W_tr = LINE(W_tr, y, pitch);
     line_W_tr[x] = line_W_xx[x] + line_W_yy[x] + 1;
 
-    char* W_det = NTH_BUFFER(buffers, 10, pitch, height);
+    char* W_det = NTH_BUFFER(buffers, 11, pitch, height + (2 * padding));
     float* line_W_det = LINE(W_det, y, pitch);
     line_W_det[x] = line_W_xx[x] * line_W_yy[x] - line_W_xy_2[x];
 
@@ -288,39 +321,48 @@ __global__ void harris_img(char* buffers, size_t pitch, size_t width,
 }
 
 __global__ void threshold(char* buffer, size_t pitch, size_t width,
-                          size_t height, float threshold)
+                          size_t height, float threshold, size_t padding)
 {
     int x = blockDim.x * blockIdx.x + threadIdx.x;
     int y = blockDim.y * blockIdx.y + threadIdx.y;
 
     if (x >= width || y >= height)
         return;
+
+    x += padding;
+    y += padding;
 
     float* line_buffer = LINE(buffer, y, pitch);
     line_buffer[x] = line_buffer[x] > threshold ? 1.0 : 0.0;
 }
 
 __global__ void dilate(char* out, char* in, size_t pitch, size_t width,
-                       size_t height)
+                       size_t height, size_t padding)
 {
     int x = blockDim.x * blockIdx.x + threadIdx.x;
     int y = blockDim.y * blockIdx.y + threadIdx.y;
 
     if (x >= width || y >= height)
         return;
+
+    x += padding;
+    y += padding;
 
     CONVOLVE_DILATE(out, in, y, x, width, height, pitch);
 }
 
 __global__ void harris_response(char* harris_im, char* harris_dil, size_t pitch,
                                 size_t width, size_t height, float min,
-                                float max)
+                                float max, size_t padding)
 {
     int x = blockDim.x * blockIdx.x + threadIdx.x;
     int y = blockDim.y * blockIdx.y + threadIdx.y;
 
     if (x >= width || y >= height)
         return;
+
+    x += padding;
+    y += padding;
 
     float* line_harris_im = LINE(harris_im, y, pitch);
     float* line_harris_dil = LINE(harris_dil, y, pitch);
@@ -335,7 +377,7 @@ __global__ void harris_response(char* harris_im, char* harris_dil, size_t pitch,
 
 __global__ void best_points(char* harris_resp, point* points, char* values,
                             size_t pitch, size_t width, size_t height,
-                            int* count)
+                            int* count, size_t padding)
 {
     int current_count = 0;
 
@@ -344,6 +386,9 @@ __global__ void best_points(char* harris_resp, point* points, char* values,
 
     if (x >= width || y >= height)
         return;
+
+    x += padding;
+    y += padding;
 
     float* line_harris_resp = LINE(harris_resp, y, pitch);
     float* line_values = ((float*)values) + y * width;
@@ -367,8 +412,12 @@ void harris(char* host_buffer, char* out_buffer, point* out_point,
     char* buffer;
     size_t pitch_buffer;
 
-    char* harris_buffers;
-    size_t pitch_harris_buffers;
+    char* padded_buffers;
+    size_t padding = ELLIPSE_DIM / 2 + ELLIPSE_DIM % 2;
+    size_t pitch_padded_buffers;
+
+    size_t padded_width = width + padding * 2;
+    size_t padded_height = height + padding * 2;
 
     point* points;
 
@@ -380,10 +429,18 @@ void harris(char* host_buffer, char* out_buffer, point* out_point,
     if (rc)
         abortError("Fail buffer allocation");
 
-    rc = cudaMallocPitch(&harris_buffers, &pitch_harris_buffers,
-                         width * sizeof(float), 12 * height);
+    const size_t NB_BUFFERS = 13;
+
+    rc = cudaMallocPitch(&padded_buffers, &pitch_padded_buffers,
+                         padded_width * sizeof(float),
+                         NB_BUFFERS * padded_height);
     if (rc)
         abortError("Fail buffer allocation");
+
+    rc = cudaMemset(padded_buffers, 0,
+                    NB_BUFFERS * padded_width * sizeof(float) * padded_height);
+    if (rc)
+        abortError("Fail buffer memset");
 
     rc = cudaMalloc(&points, height * width * sizeof(point));
     if (rc)
@@ -407,56 +464,65 @@ void harris(char* host_buffer, char* out_buffer, point* out_point,
     if (cudaPeekAtLastError())
         abortError("Computation Error");
 
+    char* padded_img =
+        NTH_BUFFER(padded_buffers, 0, pitch_padded_buffers, padded_height);
+
+    pad_image<<<dimGrid, dimBlock>>>(buffer, pitch_buffer, padded_img,
+                                     pitch_padded_buffers, width, height,
+                                     padding);
+
+    if (cudaPeekAtLastError())
+        abortError("Computation Error");
+
     // [im_x, im_y, im_xx, im_xy, im_yy]
-    gauss_derivatives<<<dimGrid, dimBlock>>>(buffer, pitch_buffer, width,
-                                             height, harris_buffers);
+    gauss_derivatives<<<dimGrid, dimBlock>>>(
+        padded_buffers, pitch_padded_buffers, width, height, padding);
 
     if (cudaPeekAtLastError())
         abortError("Computation Error");
 
     // [W_xx, W_xy, W_yy, W_xy_2, W_tr, W_det]
-    harris_img<<<dimGrid, dimBlock>>>(harris_buffers, pitch_buffer, width,
-                                      height);
+    harris_img<<<dimGrid, dimBlock>>>(padded_buffers, pitch_padded_buffers,
+                                      width, height, padding);
 
     if (cudaPeekAtLastError())
         abortError("Computation Error");
 
     char* harris_im =
-        NTH_BUFFER(harris_buffers, 10, pitch_harris_buffers, height);
+        NTH_BUFFER(padded_buffers, 11, pitch_padded_buffers, padded_height);
 
     thrust::device_vector<float> vec(
-        (float*)harris_im, (float*)(harris_im + height * pitch_harris_buffers));
+        (float*)harris_im,
+        (float*)(harris_im + padded_height * pitch_padded_buffers));
 
     // TODO: use minmax
     float harris_im_min = *thrust::min_element(vec.begin(), vec.end());
     float harris_im_max = *thrust::max_element(vec.begin(), vec.end());
 
-    // threshold<<<dimGrid, dimBlock>>>(harris_im, pitch_buffer, width, height,
-    //                                  harris_im_max * 0.1);
-
     if (cudaPeekAtLastError())
         abortError("Computation Error");
 
     char* harris_dil =
-        NTH_BUFFER(harris_buffers, 11, pitch_harris_buffers, height);
+        NTH_BUFFER(padded_buffers, 12, pitch_padded_buffers, padded_height);
 
-    rc = cudaMemcpy2D(harris_dil, width * sizeof(float), harris_im,
-                      pitch_harris_buffers, width * sizeof(float), height,
-                      cudaMemcpyDeviceToDevice);
+    rc = cudaMemcpy2D(harris_dil, pitch_padded_buffers, harris_im,
+                      pitch_padded_buffers, padded_width * sizeof(float),
+                      padded_height, cudaMemcpyDeviceToDevice);
     if (rc)
         abortError("Unable to copy buffer back to memory");
 
-    dilate<<<dimGrid, dimBlock>>>(harris_dil, harris_im, pitch_buffer, width,
-                                  height);
+    dilate<<<dimGrid, dimBlock>>>(harris_dil, harris_im, pitch_padded_buffers,
+                                  width, height, padding);
 
     if (cudaPeekAtLastError())
         abortError("Computation Error");
 
-    harris_response<<<dimGrid, dimBlock>>>(harris_im, harris_dil, pitch_buffer,
-                                           width, height, harris_im_min,
-                                           harris_im_max);
+    harris_response<<<dimGrid, dimBlock>>>(
+        harris_im, harris_dil, pitch_padded_buffers, width, height,
+        harris_im_min, harris_im_max, padding);
 
-    char* harris_resp = harris_dil;
+    if (cudaPeekAtLastError())
+        abortError("Computation Error");
 
     int* count;
     rc = cudaMalloc(&count, 1 * sizeof(int));
@@ -467,18 +533,27 @@ void harris(char* host_buffer, char* out_buffer, point* out_point,
     if (rc)
         abortError("Fail buffer memset");
 
-    best_points<<<dimGrid, dimBlock>>>(harris_resp, points, harris_buffers,
-                                       pitch_buffer, width, height, count);
+    best_points<<<dimGrid, dimBlock>>>(harris_dil, points, padded_buffers,
+                                       pitch_padded_buffers, width, height,
+                                       count, padding);
+
+    if (cudaPeekAtLastError())
+        abortError("Computation Error");
 
     thrust::sort_by_key(
-        thrust::device, (float*)harris_buffers,
-        (float*)(harris_buffers + height * width * sizeof(float)), points);
+        thrust::device, (float*)padded_buffers,
+        (float*)(padded_buffers + height * width * sizeof(float)), points);
 
     char* result = harris_dil;
 
-    rc = cudaMemcpy2D(out_buffer, width * sizeof(float), result,
-                      pitch_harris_buffers, width * sizeof(float), height,
-                      cudaMemcpyDeviceToHost);
+    unpad_image<<<dimGrid, dimBlock>>>(result, pitch_padded_buffers, buffer,
+                                       pitch_buffer, width, height, padding);
+
+    if (cudaPeekAtLastError())
+        abortError("Computation Error");
+
+    rc = cudaMemcpy2D(out_buffer, width * sizeof(float), buffer, pitch_buffer,
+                      width * sizeof(float), height, cudaMemcpyDeviceToHost);
     if (rc)
         abortError("Unable to copy buffer back to memory");
 
@@ -498,11 +573,7 @@ void harris(char* host_buffer, char* out_buffer, point* out_point,
     if (rc)
         abortError("Unable to free memory");
 
-    rc = cudaFree(buffer);
-    if (rc)
-        abortError("Unable to free memory");
-
-    rc = cudaFree(harris_buffers);
+    rc = cudaFree(padded_buffers);
     if (rc)
         abortError("Unable to free memory");
 }
