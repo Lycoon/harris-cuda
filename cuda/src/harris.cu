@@ -394,7 +394,7 @@ __global__ void best_points(char* harris_resp, point* points, char* values,
     float* line_values = ((float*)values) + y * width;
     point* line_points = points + (y * width);
 
-    line_points[x] = { y, x };
+    line_points[x] = { y - (int)padding, x - (int)padding };
     line_values[x] = line_harris_resp[x];
 
     current_count = line_harris_resp[x] >= 1e-3;
