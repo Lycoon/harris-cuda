@@ -188,14 +188,12 @@ __device__ const uint16_t ELLIPSE_POINTS[] = {
         line[j] = acc;                                                         \
     }
 
-#define CONVOLVE_DILATE(out, in, i, j, width, height, pitch, kernel,           \
-                        kernel_size)                                           \
-                                                                               \
+#define CONVOLVE_DILATE(out, in, i, j, width, height, pitch)                   \
     {                                                                          \
         float acc = 0;                                                         \
         float* line = (float*)(out + i * pitch);                               \
                                                                                \
-        int offSet = ((int)kernel_size) / 2;                                   \
+        int offSet = 10;                                                       \
         for (uint16_t p : ELLIPSE_POINTS)                                      \
         {                                                                      \
             int kX = (int)(p & 0xFF) - offSet;                                 \
@@ -318,7 +316,7 @@ __global__ void dilate(char* out, char* in, size_t pitch, size_t width,
     if (x >= width || y >= height)
         return;
 
-    CONVOLVE_DILATE(out, in, y, x, width, height, pitch, ELLIPSE, ELLIPSE_DIM);
+    CONVOLVE_DILATE(out, in, y, x, width, height, pitch);
 }
 
 __global__ void harris_response(char* harris_im, char* harris_dil, size_t pitch,
