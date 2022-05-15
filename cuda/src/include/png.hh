@@ -23,6 +23,8 @@ public:
 
     ImagePNG* grayscale();
 
+    void draw_disk(size_t x, size_t y);
+
     void write(char* filename);
 
 public:

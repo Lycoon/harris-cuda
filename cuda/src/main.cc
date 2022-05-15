@@ -58,30 +58,38 @@ int main(int argc, char** argv)
            reinterpret_cast<point*>(point_out.get()), &nb_points, image->width,
            image->height, stride);
 
-    float min = std::numeric_limits<float>::max();
-    float max = std::numeric_limits<float>::min();
-    for (size_t y = 0; y < image->height; y++)
-    {
-        for (size_t x = 0; x < image->width; x++)
-        {
-            float tmp = ((float*)buffer_out.get())[y * image->width + x];
-            min = std::min(min, tmp);
-            max = std::max(max, tmp);
-        }
-    }
+    // float min = std::numeric_limits<float>::max();
+    // float max = std::numeric_limits<float>::min();
+    // for (size_t y = 0; y < image->height; y++)
+    // {
+    //     for (size_t x = 0; x < image->width; x++)
+    //     {
+    //         float tmp = ((float*)buffer_out.get())[y * image->width + x];
+    //         min = std::min(min, tmp);
+    //         max = std::max(max, tmp);
+    //     }
+    // }
 
-    // Write image data
-    for (size_t y = 0; y < image->height; y++)
+    // // Write image data
+    // for (size_t y = 0; y < image->height; y++)
+    // {
+    //     for (size_t x = 0; x < image->width; x++)
+    //     {
+    //         float grey =
+    //             ((((float*)buffer_out.get())[y * image->width + x] - min)
+    //              * 255.f)
+    //             / (max - min);
+    //         for (size_t k = 0; k < 3; k++)
+    //             image->row_pointers[y][x * 3 + k] =
+    //             static_cast<png_byte>(grey);
+    //     }
+    // }
+
+    // Draw points
+    for (size_t i = 0; i < nb_points; i++)
     {
-        for (size_t x = 0; x < image->width; x++)
-        {
-            float grey =
-                ((((float*)buffer_out.get())[y * image->width + x] - min)
-                 * 255.f)
-                / (max - min);
-            for (size_t k = 0; k < 3; k++)
-                image->row_pointers[y][x * 3 + k] = static_cast<png_byte>(grey);
-        }
+        auto p = ((point*)point_out.get())[i];
+        image->draw_disk(p.x, p.y);
     }
 
     write_png(image->row_pointers, image->width, image->height, stride,
