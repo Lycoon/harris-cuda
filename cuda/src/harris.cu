@@ -19,8 +19,6 @@
 
 #define abortError(msg) _abortError(msg, __FUNCTION__, __LINE__)
 
-#define FLOAT_LINE(buf, y) ((float*)(((char*)buf) + y))
-
 __global__ void img2float(char* buffer, size_t pitch, char* out,
                           size_t pitch_out, size_t width, size_t height)
 {
@@ -211,36 +209,6 @@ __device__ const uint16_t ELLIPSE_POINTS[] = {
                                                                                \
         line[j] = acc;                                                         \
     }
-
-__device__ void convolve_dilate(char* out, char* in, size_t i, size_t j,
-                                size_t width, size_t height, size_t pitch,
-                                const float* kernel, size_t kernel_size)
-{
-    float* line = (float*)(out + i * pitch);
-
-    float acc = 0;
-    size_t kI = kernel_size - 1;
-
-    int maxY = ((int)kernel_size) / 2 + kernel_size % 2;
-    for (int kY = -((int)kernel_size) / 2; kY < maxY; kY++, kI--)
-    {
-        size_t kJ = kernel_size - 1;
-        int maxX = ((int)kernel_size) / 2 + kernel_size % 2;
-        for (int kX = -((int)kernel_size) / 2; kX < maxX; kX++, kJ--)
-        {
-            if (((int)i) + kY >= 0 && i + kY < height && ((int)j) + kX >= 0
-                && j + kX < width)
-            {
-                float* current_line = (float*)(in + (i + kY) * pitch);
-                if (kernel[kI * kernel_size + kJ] > 0.00001
-                    && current_line[j + kX] > acc)
-                    acc = current_line[j + kX];
-            }
-        }
-    }
-
-    line[j] = acc;
-}
 
 __device__ char* nth_buffer(char* buffers, size_t n, size_t pitch,
                             size_t height)
