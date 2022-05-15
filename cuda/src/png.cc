@@ -121,7 +121,10 @@ void ImagePNG::draw_disk(size_t x, size_t y)
         int kX = (int)(p & 0xFF) - offSet + x;
         int kY = (int)((p >> 8) & 0xFF) - offSet + y;
 
-        // FIXME: "free(): invalid next size (normal)"
+        if (kX < 0 || kX >= (int)this->width || kY < 0
+            || kY >= (int)this->height)
+            continue;
+
         this->row_pointers[kY][kX * 3 + 0] = static_cast<png_byte>(255);
         this->row_pointers[kY][kX * 3 + 1] = static_cast<png_byte>(0);
         this->row_pointers[kY][kX * 3 + 2] = static_cast<png_byte>(0);
