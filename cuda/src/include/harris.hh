@@ -18,4 +18,5 @@ struct point
 };
 
 void harris(char* host_buffer, char* out_buffer, point* out_point,
-            int* nb_points, size_t width, size_t height, std::ptrdiff_t stride);
+            size_t* nb_points, size_t width, size_t height,
+            std::ptrdiff_t stride);

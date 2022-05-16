@@ -9,8 +9,7 @@
 #include "include/harris.hh"
 #include "include/png.hh"
 
-void write_png(png_bytepp buffer, int width, int height, int stride,
-               const char* filename)
+void write_png(png_bytepp buffer, int width, int height, const char* filename)
 {
     FILE* fp = fopen(filename, "wb");
     png_structp png_ptr =
@@ -30,8 +29,6 @@ void write_png(png_bytepp buffer, int width, int height, int stride,
 
     fclose(fp);
 }
-
-
 
 int main(int argc, char** argv)
 {
@@ -55,7 +52,7 @@ int main(int argc, char** argv)
         memcpy(buffer.get() + i * stride, image->row_pointers[i], stride);
     }
 
-    int nb_points = 0;
+    size_t nb_points = 0;
     // harris
     harris(reinterpret_cast<char*>(buffer.get()),
            reinterpret_cast<char*>(buffer_out.get()),
@@ -96,8 +93,7 @@ int main(int argc, char** argv)
         image->draw_disk(p.x, p.y);
     }
 
-    write_png(image->row_pointers, image->width, image->height, stride,
-              "output.png");
+    write_png(image->row_pointers, image->width, image->height, "output.png");
 
     std::stringstream output;
     output << "nb_points: " << nb_points << "\n";
