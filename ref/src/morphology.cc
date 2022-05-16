@@ -92,7 +92,7 @@ Matrix* harris_response(Matrix& harris_img)
     auto max = detection->max();
 
     auto lambda_ = [max, min](float a) {
-        return a > min + 0.5 * (max - min) ? a : 0;
+        return a > min + 0.1 * (max - min) ? a : 0;
     };
     detection->lambda(lambda_);
     detection->mul(*is_close);

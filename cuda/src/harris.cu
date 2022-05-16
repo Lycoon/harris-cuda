@@ -371,7 +371,7 @@ __global__ void harris_response(char* harris_im, char* harris_dil, size_t pitch,
         <= (1.0e-8 + 1.0e-5 * abs(line_harris_dil[x]));
 
     line_harris_dil[x] =
-        line_harris_im[x] > (min + 0.5 * (max - min)) ? line_harris_im[x] : 0;
+        line_harris_im[x] > (min + 0.1 * (max - min)) ? line_harris_im[x] : 0;
     line_harris_dil[x] = line_harris_dil[x] * (float)is_close;
 }
 

@@ -207,12 +207,12 @@ def best_points(image_path: str):
     image = cv2.imread(image_path)
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     harris = compute_harris_response(gray)
-    coords = detect_harris_points(gray, min_distance=20, max_keypoints=-1)
+    coords = detect_harris_points(harris, max_keypoints=-1, min_distance=20)
 
     output = ""
 
     for p in coords:
-        output += f"x: {p[0]} | y: {p[1]}\n"
+        output += f"x: {p[1]} | y: {p[0]}\n"
         cv2.circle(image, (p[1], p[0]), 3, (0, 255, 0), -1)
     
     with open("output.txt", "w") as f:
