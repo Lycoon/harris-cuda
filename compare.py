@@ -11,8 +11,8 @@ def parse_points(file):
         line = f.readline()
         while line:
             values = line.split("|")
-            x = values[0].strip().removeprefix("x: ").strip()
-            y = values[1].strip().removeprefix("y: ").strip()
+            x = values[0].strip().replace("x: ", "").strip()
+            y = values[1].strip().replace("y: ", "").strip()
             points.append((int(x), int(y)))
             line = f.readline()
     return points
