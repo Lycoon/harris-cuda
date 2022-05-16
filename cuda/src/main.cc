@@ -1,8 +1,10 @@
 #include <cstddef>
 #include <cstring>
+#include <fstream>
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <sstream>
 
 #include "include/harris.hh"
 #include "include/png.hh"
@@ -29,15 +31,17 @@ void write_png(png_bytepp buffer, int width, int height, int stride,
     fclose(fp);
 }
 
-// Usage: ./mandel
+
+
 int main(int argc, char** argv)
 {
-    (void)argc;
-    (void)argv;
+    if (argc != 2)
+    {
+        std::cerr << "Usage: ./harris <image>" << std::endl;
+        exit(3);
+    }
 
-    std::string filename = "output.png";
-
-    auto image = ImagePNG::read((char*)"../twin_it/bubbles_200dpi/b006.png");
+    auto image = ImagePNG::read(argv[1]);
 
     // Create buffer (will need pitch)
     int stride = image->width * sizeof(rgb_png);
@@ -93,14 +97,21 @@ int main(int argc, char** argv)
     }
 
     write_png(image->row_pointers, image->width, image->height, stride,
-              filename.c_str());
+              "output.png");
 
-    std::cout << "nb_points: " << nb_points << "\n";
+    std::stringstream output;
+    output << "nb_points: " << nb_points << "\n";
     for (size_t i = 0; i < nb_points; i++)
     {
-        std::cout << "x: " << ((point*)point_out.get())[i].x
-                  << " | y: " << ((point*)point_out.get())[i].y << "\n";
+        auto p = ((point*)point_out.get())[i];
+        output << "x: " << p.x << " | y: " << p.y << "\n";
     }
+
+    std::cout << output.str();
+
+    std::ofstream output_file("output.txt");
+    output_file << output.str();
+    output_file.close();
 
     delete image;
 }
