@@ -320,22 +320,6 @@ __global__ void harris_img(char* buffers, size_t pitch, size_t width,
     line_W_det[x] = line_W_det[x] / line_W_tr[x];
 }
 
-__global__ void threshold(char* buffer, size_t pitch, size_t width,
-                          size_t height, float threshold, size_t padding)
-{
-    int x = blockDim.x * blockIdx.x + threadIdx.x;
-    int y = blockDim.y * blockIdx.y + threadIdx.y;
-
-    if (x >= width || y >= height)
-        return;
-
-    x += padding;
-    y += padding;
-
-    float* line_buffer = LINE(buffer, y, pitch);
-    line_buffer[x] = line_buffer[x] > threshold ? 1.0 : 0.0;
-}
-
 __global__ void dilate(char* out, char* in, size_t pitch, size_t width,
                        size_t height, size_t padding)
 {

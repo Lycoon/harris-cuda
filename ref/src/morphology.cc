@@ -119,14 +119,6 @@ std::vector<Point> best_harris_points(Matrix& harris_img)
     std::sort(points.begin(), points.end(), lambda_);
     points.resize(std::min(2000UL, points.size()));
 
-    // for (size_t i = 0; i < points.size(); i++)
-    // {
-    //     auto y = std::get<0>(points[i]);
-    //     auto x = std::get<1>(points[i]);
-    //     std::cout << x << ", " << y << std::endl;
-    //     std::cout << (*harris_resp)[y][x] << std::endl;
-    // }
-
     delete harris_resp;
 
     return points;

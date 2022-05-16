@@ -370,7 +370,6 @@ std::vector<std::tuple<size_t, size_t>> Matrix::points(float min, float max)
         for (size_t j = 0; j < this->width; j++)
         {
             auto a = (*this)[i][j];
-            // std::cout << a << std::endl;
             if (a > min && a < max)
                 vec.emplace_back(i, j);
         }
