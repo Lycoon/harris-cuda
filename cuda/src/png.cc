@@ -125,8 +125,8 @@ void ImagePNG::draw_disk(size_t x, size_t y)
             || kY >= (int)this->height)
             continue;
 
-        this->row_pointers[kY][kX * 3 + 0] = static_cast<png_byte>(255);
-        this->row_pointers[kY][kX * 3 + 1] = static_cast<png_byte>(0);
-        this->row_pointers[kY][kX * 3 + 2] = static_cast<png_byte>(0);
+        this->row_pointers[kY][kX * 3 + 0] = 230;
+        this->row_pointers[kY][kX * 3 + 1] = 0;
+        this->row_pointers[kY][kX * 3 + 2] = 126;
     }
 }
