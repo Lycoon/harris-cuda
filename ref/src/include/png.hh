@@ -28,6 +28,8 @@ public:
 
     ImagePNG* grayscale();
 
+    void draw_disk(size_t x, size_t y);
+
     Matrix* grayscale_matrix();
     void write(char* filename);
 

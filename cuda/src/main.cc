@@ -86,22 +86,15 @@ int main(int argc, char** argv)
     //     }
     // }
 
-    // Draw points
+    std::stringstream output;
     for (size_t i = 0; i < nb_points; i++)
     {
         auto p = ((point*)point_out.get())[i];
         image->draw_disk(p.x, p.y);
-    }
-
-    write_png(image->row_pointers, image->width, image->height, "output.png");
-
-    std::stringstream output;
-    output << "nb_points: " << nb_points << "\n";
-    for (size_t i = 0; i < nb_points; i++)
-    {
-        auto p = ((point*)point_out.get())[i];
         output << "x: " << p.x << " | y: " << p.y << "\n";
     }
+
+    image->write("output.png");
 
     std::cout << output.str();
 

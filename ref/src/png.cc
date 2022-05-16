@@ -305,3 +305,29 @@ Matrix* ImagePNG::grayscale_matrix()
 
     return mat;
 }
+
+const uint16_t DISK_POINTS[] = {
+    (0 << 8) | 1, (0 << 8) | 2, (0 << 8) | 3, (1 << 8) | 0, (1 << 8) | 1,
+    (1 << 8) | 2, (1 << 8) | 3, (1 << 8) | 4, (2 << 8) | 0, (2 << 8) | 1,
+    (2 << 8) | 2, (2 << 8) | 3, (2 << 8) | 4, (3 << 8) | 0, (3 << 8) | 1,
+    (3 << 8) | 2, (3 << 8) | 3, (3 << 8) | 4, (4 << 8) | 1, (4 << 8) | 2,
+    (4 << 8) | 3,
+};
+
+void ImagePNG::draw_disk(size_t x, size_t y)
+{
+    int offSet = 2;
+    for (uint16_t p : DISK_POINTS)
+    {
+        int kX = (int)(p & 0xFF) - offSet + x;
+        int kY = (int)((p >> 8) & 0xFF) - offSet + y;
+
+        if (kX < 0 || kX >= (int)this->width || kY < 0
+            || kY >= (int)this->height)
+            continue;
+
+        this->row_pointers[kY][kX * 3 + 0] = 0;
+        this->row_pointers[kY][kX * 3 + 1] = 255;
+        this->row_pointers[kY][kX * 3 + 2] = 255;
+    }
+}
